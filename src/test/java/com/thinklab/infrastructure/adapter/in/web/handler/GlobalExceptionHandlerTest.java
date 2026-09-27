@@ -1,7 +1,7 @@
 package com.thinklab.infrastructure.adapter.in.web.handler;
 
+import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.exception.ApprovalRequestNotFoundException;
-import com.thinklab.domain.exception.DuplicateApprovalRequestException;
 import com.thinklab.domain.exception.InvalidApprovalRequestStatusException;
 import io.micronaut.http.HttpHeaders;
 import io.micronaut.http.HttpRequest;
@@ -66,9 +66,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("DuplicateApprovalRequestException maps to 409 with ERR-WFA-00409")
-    void conflict() {
-        assertProblem(exceptionHandler.handle(request, new DuplicateApprovalRequestException("dup")), HttpStatus.CONFLICT, "ERR-WFA-00409");
+    @DisplayName("ApprovalPolicyNotFoundException maps to 404 with ERR-WFA-00404")
+    void policyNotFound() {
+        UUID id = UUID.randomUUID();
+
+        Map<String, Object> body = assertProblem(exceptionHandler.handle(request, new ApprovalPolicyNotFoundException(id)),
+                HttpStatus.NOT_FOUND, "ERR-WFA-00404");
+
+        assertTrue(body.get("detail").toString().contains(id.toString()));
     }
 
     @Test

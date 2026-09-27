@@ -171,10 +171,10 @@ thinklab:
     client-secret: ${THINKLAB_CLIENT_SECRET:}
 
   # ----------------------------------------------------------------------------------------------
-  # Event backbone (kit ADR-003). This service is a consumer only, of it-hardware-maintenance's
-  # repair-started/repair-completed events (ADR-034 of that service) - it moves the affected ApprovalRequest
-  # into/out of MAINTENANCE via the existing ControlApprovalRequestUseCase, never a new ApprovalRequest domain method.
-  # Off by default; set THINKLAB_EVENTS_ENABLED=true to consume from NATS JetStream locally.
+  # Event backbone (kit ADR-003). This service publishes and consumes no events - client integration
+  # (it-change-management) is synchronous HTTP instead (ADR-032 of this service). This block stays
+  # present only because the kit's OutboxRelay/NatsConnectionFactory beans exist unconditionally,
+  # gated by this same property; it must remain false here.
   # ----------------------------------------------------------------------------------------------
   events:
     enabled: ${THINKLAB_EVENTS_ENABLED:false}
