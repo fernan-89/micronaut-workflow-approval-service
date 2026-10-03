@@ -20,6 +20,7 @@ public class ApprovalPolicyDocument {
     private String name;
     private int requiredApprovals;
     private List<UUID> eligibleApproverIds = new ArrayList<>();
+    private List<StageDocument> stages;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -33,6 +34,8 @@ public class ApprovalPolicyDocument {
     public void setRequiredApprovals(int requiredApprovals) { this.requiredApprovals = requiredApprovals; }
     public List<UUID> getEligibleApproverIds() { return eligibleApproverIds; }
     public void setEligibleApproverIds(List<UUID> eligibleApproverIds) { this.eligibleApproverIds = eligibleApproverIds; }
+    public List<StageDocument> getStages() { return stages; }
+    public void setStages(List<StageDocument> stages) { this.stages = stages; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
@@ -49,6 +52,7 @@ public class ApprovalPolicyDocument {
             doc.setName(policy.getName());
             doc.setRequiredApprovals(policy.getRequiredApprovals());
             doc.setEligibleApproverIds(new ArrayList<>(policy.getEligibleApproverIds()));
+            doc.setStages(StageDocument.fromDomain(policy.getStages()));
             doc.setCreatedAt(policy.getCreatedAt());
             doc.setUpdatedAt(policy.getUpdatedAt());
             return doc;
@@ -57,7 +61,7 @@ public class ApprovalPolicyDocument {
         public static ApprovalPolicy toDomain(ApprovalPolicyDocument doc) {
             List<UUID> approvers = doc.getEligibleApproverIds() != null ? doc.getEligibleApproverIds() : new ArrayList<>();
             return ApprovalPolicy.reconstitute(doc.getId(), doc.getOrganisationId(), doc.getName(),
-                    doc.getRequiredApprovals(), approvers, doc.getCreatedAt(), doc.getUpdatedAt());
+                    doc.getRequiredApprovals(), approvers, StageDocument.toDomain(doc.getStages()), doc.getCreatedAt(), doc.getUpdatedAt());
         }
     }
 }

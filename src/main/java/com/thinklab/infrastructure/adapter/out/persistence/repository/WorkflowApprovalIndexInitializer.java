@@ -36,6 +36,7 @@ public class WorkflowApprovalIndexInitializer implements ApplicationEventListene
 
     static final String POLICY_TENANT_NAME_INDEX = "organisationId_1_name_1";
     static final String REQUEST_TENANT_SUBJECT_INDEX = "organisationId_1_subjectType_1_subjectId_1";
+    static final String REQUEST_INBOX_INDEX = "organisationId_1_status_1_eligibleApproverIds_1";
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowApprovalIndexInitializer.class);
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
@@ -63,6 +64,9 @@ public class WorkflowApprovalIndexInitializer implements ApplicationEventListene
                 new Document("organisationId", 1).append("name", 1));
         ensureIndex(ApprovalRequestMongoRepositoryAdapter.COLLECTION_NAME, REQUEST_TENANT_SUBJECT_INDEX,
                 new Document("organisationId", 1).append("subjectType", 1).append("subjectId", 1));
+        // The approver inbox (findPendingFor): PENDING requests whose current stage lists the approver.
+        ensureIndex(ApprovalRequestMongoRepositoryAdapter.COLLECTION_NAME, REQUEST_INBOX_INDEX,
+                new Document("organisationId", 1).append("status", 1).append("eligibleApproverIds", 1));
     }
 
     private void ensureIndex(String collectionName, String indexName, Document keys) {

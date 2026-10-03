@@ -1,6 +1,7 @@
 package com.thinklab.application.usecase;
 
 import com.thinklab.application.dto.request.UpdatePolicyRequest;
+import com.thinklab.application.mapper.ApprovalPolicyMapper;
 import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.repository.ApprovalPolicyRepository;
 import jakarta.inject.Singleton;
@@ -28,8 +29,8 @@ public class UpdatePolicyUseCase {
         return policyRepository.findById(id)
                 .switchIfEmpty(Mono.error(new ApprovalPolicyNotFoundException(id)))
                 .flatMap(policy -> {
-                    policy.update(request.name(), request.requiredApprovals(), request.eligibleApproverIds());
-                    return policyRepository.updateBasicInfo(id, policy.getName(), policy.getRequiredApprovals(), policy.getEligibleApproverIds());
+                    policy.update(request.name(), ApprovalPolicyMapper.toStages(request.requiredApprovals(), request.eligibleApproverIds(), request.stages()));
+                    return policyRepository.updateBasicInfo(id, policy.getName(), policy.getStages());
                 });
     }
 }

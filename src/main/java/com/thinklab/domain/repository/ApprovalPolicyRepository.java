@@ -1,6 +1,7 @@
 package com.thinklab.domain.repository;
 
 import com.thinklab.domain.model.ApprovalPolicy;
+import com.thinklab.domain.model.ApprovalStage;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -22,5 +23,6 @@ public interface ApprovalPolicyRepository {
     /** Tenant-scoped listing, optionally filtered by the policy's own {@code name}. */
     Flux<ApprovalPolicy> findAllByOrganisationId(UUID organisationId, String name);
 
-    Mono<Void> updateBasicInfo(UUID id, String name, int requiredApprovals, List<UUID> eligibleApproverIds);
+    /** Replaces the name and the whole chain. The first stage is also kept in the original two fields, so older readers still see a quorum. */
+    Mono<Void> updateBasicInfo(UUID id, String name, List<ApprovalStage> stages);
 }

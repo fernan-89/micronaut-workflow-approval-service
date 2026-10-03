@@ -136,15 +136,19 @@ public class WorkflowApprovalController {
         return retrieveApprovalRequestUseCase.execute(id).map(HttpResponse::ok);
     }
 
-    /** Behavior Qualifier: {@code retrieve} (collection). Filterable by {@code subjectType}/{@code subjectId}/{@code status}. */
+    /**
+     * Behavior Qualifier: {@code retrieve} (collection). Filterable by {@code subjectType}/{@code subjectId}/{@code status}. With
+     * {@code pendingFor} it is that approver's inbox (the other filters then do not apply): what they can decide on now, oldest first.
+     */
     @Get("/retrieve")
     public Mono<List<ApprovalRequestResponse>> retrieveAll(
             @Header(TENANT_HEADER) @NotBlank String tenantId,
             @QueryValue @Nullable String subjectType,
             @QueryValue @Nullable UUID subjectId,
-            @QueryValue @Nullable ApprovalStatus status
+            @QueryValue @Nullable ApprovalStatus status,
+            @QueryValue @Nullable UUID pendingFor
     ) {
-        return Mono.defer(() -> retrieveApprovalRequestsUseCase.execute(UUID.fromString(tenantId), subjectType, subjectId, status).collectList());
+        return Mono.defer(() -> retrieveApprovalRequestsUseCase.execute(UUID.fromString(tenantId), subjectType, subjectId, status, pendingFor).collectList());
     }
 
     /** Behavior Qualifier: {@code decision/capture}. One approver's vote; resolves the request synchronously when quorum/veto is reached. */

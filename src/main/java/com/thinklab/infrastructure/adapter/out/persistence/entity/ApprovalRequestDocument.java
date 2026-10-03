@@ -28,6 +28,8 @@ public class ApprovalRequestDocument {
     private UUID policyId;
     private int requiredApprovals;
     private List<UUID> eligibleApproverIds = new ArrayList<>();
+    private List<StageDocument> stages;
+    private int currentStage;
     private String status;
     private List<DecisionDocument> decisions = new ArrayList<>();
     private Instant createdAt;
@@ -50,6 +52,10 @@ public class ApprovalRequestDocument {
     public void setRequiredApprovals(int requiredApprovals) { this.requiredApprovals = requiredApprovals; }
     public List<UUID> getEligibleApproverIds() { return eligibleApproverIds; }
     public void setEligibleApproverIds(List<UUID> eligibleApproverIds) { this.eligibleApproverIds = eligibleApproverIds; }
+    public List<StageDocument> getStages() { return stages; }
+    public void setStages(List<StageDocument> stages) { this.stages = stages; }
+    public int getCurrentStage() { return currentStage; }
+    public void setCurrentStage(int currentStage) { this.currentStage = currentStage; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public List<DecisionDocument> getDecisions() { return decisions; }
@@ -62,13 +68,13 @@ public class ApprovalRequestDocument {
     public void setAuditTrail(List<AuditEntryDocument> auditTrail) { this.auditTrail = auditTrail; }
 
     @Introspected
-    public record DecisionDocument(UUID approverId, String outcome, String comment, Instant decidedAt) {
+    public record DecisionDocument(UUID approverId, String outcome, String comment, Instant decidedAt, int stage) {
         public static DecisionDocument fromDomain(Decision decision) {
-            return new DecisionDocument(decision.approverId(), decision.outcome().name(), decision.comment(), decision.decidedAt());
+            return new DecisionDocument(decision.approverId(), decision.outcome().name(), decision.comment(), decision.decidedAt(), decision.stage());
         }
 
         Decision toDomain() {
-            return new Decision(approverId, DecisionOutcome.valueOf(outcome), comment, decidedAt);
+            return new Decision(approverId, DecisionOutcome.valueOf(outcome), comment, decidedAt, stage);
         }
     }
 
@@ -101,6 +107,8 @@ public class ApprovalRequestDocument {
             doc.setPolicyId(request.getPolicyId());
             doc.setRequiredApprovals(request.getRequiredApprovals());
             doc.setEligibleApproverIds(new ArrayList<>(request.getEligibleApproverIds()));
+            doc.setStages(StageDocument.fromDomain(request.getStages()));
+            doc.setCurrentStage(request.getCurrentStage());
             doc.setStatus(request.getStatus().name());
             doc.setDecisions(request.getDecisions().stream().map(DecisionDocument::fromDomain).collect(Collectors.toCollection(ArrayList::new)));
             doc.setCreatedAt(request.getCreatedAt());
@@ -118,7 +126,8 @@ public class ApprovalRequestDocument {
                     ? doc.getAuditTrail().stream().map(AuditEntryDocument::toDomain).collect(Collectors.toList()) : new ArrayList<>();
 
             return ApprovalRequest.reconstitute(doc.getId(), doc.getOrganisationId(), doc.getSubjectType(), doc.getSubjectId(),
-                    doc.getRequesterId(), doc.getPolicyId(), doc.getRequiredApprovals(), approvers, status, decisions,
+                    doc.getRequesterId(), doc.getPolicyId(), doc.getRequiredApprovals(), approvers, StageDocument.toDomain(doc.getStages()),
+                    doc.getCurrentStage(), status, decisions,
                     doc.getCreatedAt(), doc.getUpdatedAt(), trail);
         }
     }

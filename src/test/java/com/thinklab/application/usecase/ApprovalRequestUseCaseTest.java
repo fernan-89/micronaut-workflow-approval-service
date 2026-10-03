@@ -108,7 +108,7 @@ class ApprovalRequestUseCaseTest {
                 .thenReturn(Flux.just(request));
         RetrieveApprovalRequestsUseCase useCase = new RetrieveApprovalRequestsUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(organisationId, "ChangeRequest", request.getSubjectId(), ApprovalStatus.PENDING))
+        StepVerifier.create(useCase.execute(organisationId, "ChangeRequest", request.getSubjectId(), ApprovalStatus.PENDING, null))
                 .expectNextCount(1).verifyComplete();
     }
 
@@ -130,7 +130,7 @@ class ApprovalRequestUseCaseTest {
     @DisplayName("captureDecision: applies the domain decision, persists it and returns the resolved response")
     void captureDecisionSuccess() {
         when(requestRepository.findById(request.getId())).thenReturn(Mono.just(request));
-        lenient().when(requestRepository.addDecision(any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(requestRepository.addDecision(any(), any(), any())).thenReturn(Mono.empty());
         CaptureDecisionUseCase useCase = new CaptureDecisionUseCase(requestRepository);
 
         StepVerifier.create(useCase.execute(request.getId(), approverA, new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok"), EXECUTOR))
@@ -180,6 +180,21 @@ class ApprovalRequestUseCaseTest {
 
         StepVerifier.create(useCase.execute(request.getId()))
                 .assertNext(entries -> assertEquals(1, entries.size()))
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("retrieveAll with pendingFor is that approver's inbox, oldest first, and ignores the other filters")
+    void retrieveInbox() throws Exception {
+        var older = ApprovalRequest.createNew(UUID.randomUUID(), organisationId, "ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId(), 1, List.of(approverA), EXECUTOR);
+        Thread.sleep(5);
+        var newer = ApprovalRequest.createNew(UUID.randomUUID(), organisationId, "ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId(), 1, List.of(approverA), EXECUTOR);
+        when(requestRepository.findPendingFor(organisationId, approverA)).thenReturn(Flux.just(newer, older));
+        RetrieveApprovalRequestsUseCase useCase = new RetrieveApprovalRequestsUseCase(requestRepository);
+
+        StepVerifier.create(useCase.execute(organisationId, "Ignored", UUID.randomUUID(), ApprovalStatus.APPROVED, approverA))
+                .assertNext(response -> assertEquals(older.getId(), response.id()))
+                .assertNext(response -> assertEquals(newer.getId(), response.id()))
                 .verifyComplete();
     }
 }

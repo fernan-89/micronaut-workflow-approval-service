@@ -28,7 +28,16 @@ public interface ApprovalRequestRepository {
      */
     Flux<ApprovalRequest> findAllByOrganisationId(UUID organisationId, String subjectType, UUID subjectId, ApprovalStatus status);
 
-    Mono<Void> addDecision(UUID id, Decision decision, ApprovalStatus status, ApprovalAuditEntry auditEntry);
+    /**
+     * Persists the vote that was just captured on {@code updated} (the aggregate AFTER the decision): the vote, the new status, the
+     * stage the request now waits on and that stage's quorum and approvers, and the audit entry - all in one atomic update. The write
+     * only applies while the request still has the decisions it had when it was loaded, so two votes racing for the same request cannot
+     * both be applied on top of the same state: the loser gets {@link com.thinklab.domain.exception.InvalidApprovalRequestStatusException} (409, retry).
+     */
+    Mono<Void> addDecision(ApprovalRequest updated, Decision decision, ApprovalAuditEntry auditEntry);
+
+    /** The PENDING requests whose current stage lists {@code approverId} and that this approver has not decided on yet. */
+    Flux<ApprovalRequest> findPendingFor(UUID organisationId, UUID approverId);
 
     Mono<Void> updateStatus(UUID id, ApprovalStatus status, ApprovalAuditEntry auditEntry);
 }

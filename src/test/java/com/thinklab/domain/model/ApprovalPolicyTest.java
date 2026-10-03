@@ -45,15 +45,15 @@ class ApprovalPolicyTest {
     @Test
     @DisplayName("reconstitute rejects missing identity or name")
     void reconstituteGuards() {
-        assertThrows(IllegalArgumentException.class, () -> ApprovalPolicy.reconstitute(null, organisationId, "CAB", 2, approvers, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalPolicy.reconstitute(id, null, "CAB", 2, approvers, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalPolicy.reconstitute(id, organisationId, null, 2, approvers, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalPolicy.reconstitute(null, organisationId, "CAB", 2, approvers, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalPolicy.reconstitute(id, null, "CAB", 2, approvers, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalPolicy.reconstitute(id, organisationId, null, 2, approvers, null, null, null));
     }
 
     @Test
     @DisplayName("reconstitute defaults missing timestamps and a null approver list")
     void reconstituteDefaults() {
-        ApprovalPolicy policy = ApprovalPolicy.reconstitute(id, organisationId, "CAB", 2, null, null, null);
+        ApprovalPolicy policy = ApprovalPolicy.reconstitute(id, organisationId, "CAB", 2, null, null, null, null);
 
         assertNotNull(policy.getCreatedAt());
         assertEquals(policy.getCreatedAt(), policy.getUpdatedAt());
@@ -65,16 +65,16 @@ class ApprovalPolicyTest {
     void update() {
         ApprovalPolicy policy = ApprovalPolicy.createNew(id, organisationId, "CAB", 2, approvers);
 
-        policy.update("CAB-v2", 3, approvers);
+        policy.update("CAB-v2", List.of(new ApprovalStage(3, approvers)));
 
         assertEquals("CAB-v2", policy.getName());
         assertEquals(3, policy.getRequiredApprovals());
 
-        assertThrows(IllegalArgumentException.class, () -> policy.update(null, 2, approvers));
-        assertThrows(IllegalArgumentException.class, () -> policy.update("", 2, approvers));
-        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", 0, approvers));
-        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", 2, null));
-        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", 2, List.of()));
-        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", 10, approvers));
+        assertThrows(IllegalArgumentException.class, () -> policy.update(null, List.of(new ApprovalStage(2, approvers))));
+        assertThrows(IllegalArgumentException.class, () -> policy.update("", List.of(new ApprovalStage(2, approvers))));
+        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", List.of(new ApprovalStage(0, approvers))));
+        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", List.of(new ApprovalStage(2, null))));
+        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", List.of(new ApprovalStage(2, List.of()))));
+        assertThrows(IllegalArgumentException.class, () -> policy.update("CAB", List.of(new ApprovalStage(10, approvers))));
     }
 }

@@ -126,8 +126,8 @@ class ApprovalRequestMongoRepositoryAdapterTest {
         when(mongoCollection.updateOne(any(Bson.class), any(Bson.class)))
                 .thenReturn(Mono.just(UpdateResult.acknowledged(1, 1L, null)));
 
-        Decision decision = new Decision(approverA, DecisionOutcome.APPROVE, "ok", Instant.now());
-        StepVerifier.create(adapter.addDecision(requestId, decision, ApprovalStatus.APPROVED, entry)).verifyComplete();
+        request.captureDecision(approverA, DecisionOutcome.APPROVE, "ok", "exec");
+        StepVerifier.create(adapter.addDecision(request, request.getDecisions().get(0), entry)).verifyComplete();
     }
 
     @Test
@@ -148,5 +148,31 @@ class ApprovalRequestMongoRepositoryAdapterTest {
         StepVerifier.create(adapter.updateStatus(requestId, ApprovalStatus.CANCELLED, entry))
                 .expectError(ApprovalRequestNotFoundException.class)
                 .verify();
+    }
+
+    @Test
+    @DisplayName("addDecision is a guarded write: when someone else got there first it answers a 409-style conflict, not a lost update")
+    void addDecisionLosesTheRace() {
+        when(mongoCollection.updateOne(any(Bson.class), any(Bson.class)))
+                .thenReturn(Mono.just(UpdateResult.acknowledged(0, 0L, null)));
+        request.captureDecision(approverA, DecisionOutcome.APPROVE, "ok", "exec");
+
+        StepVerifier.create(adapter.addDecision(request, request.getDecisions().get(0), entry))
+                .expectError(com.thinklab.domain.exception.InvalidApprovalRequestStatusException.class)
+                .verify();
+    }
+
+    @Test
+    @DisplayName("findPendingFor searches the PENDING requests whose current stage lists the approver and which they have not decided")
+    void findPendingFor() {
+        FindPublisher<ApprovalRequestDocument> publisher = mock(FindPublisher.class);
+        when(mongoCollection.find(any(Bson.class))).thenReturn(publisher);
+        doAnswer(invocation -> {
+            org.reactivestreams.Subscriber<ApprovalRequestDocument> subscriber = invocation.getArgument(0);
+            Flux.just(ApprovalRequestPersistenceMapper.toDocument(request)).subscribe(subscriber);
+            return null;
+        }).when(publisher).subscribe(any());
+
+        StepVerifier.create(adapter.findPendingFor(organisationId, approverA)).expectNextCount(1).verifyComplete();
     }
 }

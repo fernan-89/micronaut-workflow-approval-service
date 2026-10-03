@@ -37,7 +37,7 @@ public class CaptureDecisionUseCase {
                 .flatMap(approvalRequest -> {
                     var entry = approvalRequest.captureDecision(approverId, request.outcome(), request.comment(), executor);
                     Decision decision = approvalRequest.getDecisions().get(approvalRequest.getDecisions().size() - 1);
-                    return requestRepository.addDecision(id, decision, approvalRequest.getStatus(), entry)
+                    return requestRepository.addDecision(approvalRequest, decision, entry)
                             .thenReturn(ApprovalRequestMapper.toResponse(approvalRequest));
                 });
     }

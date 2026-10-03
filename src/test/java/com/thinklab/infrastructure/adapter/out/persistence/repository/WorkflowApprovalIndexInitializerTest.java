@@ -59,9 +59,12 @@ class WorkflowApprovalIndexInitializerTest {
 
         ArgumentCaptor<Document> requestKeys = ArgumentCaptor.forClass(Document.class);
         ArgumentCaptor<IndexOptions> requestOptions = ArgumentCaptor.forClass(IndexOptions.class);
-        verify(requestCollection).createIndex(requestKeys.capture(), requestOptions.capture());
-        assertEquals(new Document("organisationId", 1).append("subjectType", 1).append("subjectId", 1), requestKeys.getValue());
-        assertEquals(WorkflowApprovalIndexInitializer.REQUEST_TENANT_SUBJECT_INDEX, requestOptions.getValue().getName());
+        verify(requestCollection, org.mockito.Mockito.times(2)).createIndex(requestKeys.capture(), requestOptions.capture());
+        assertEquals(new Document("organisationId", 1).append("subjectType", 1).append("subjectId", 1), requestKeys.getAllValues().get(0));
+        assertEquals(WorkflowApprovalIndexInitializer.REQUEST_TENANT_SUBJECT_INDEX, requestOptions.getAllValues().get(0).getName());
+        // the approver inbox: PENDING requests whose current stage lists the approver
+        assertEquals(new Document("organisationId", 1).append("status", 1).append("eligibleApproverIds", 1), requestKeys.getAllValues().get(1));
+        assertEquals(WorkflowApprovalIndexInitializer.REQUEST_INBOX_INDEX, requestOptions.getAllValues().get(1).getName());
     }
 
     @Test
@@ -77,7 +80,7 @@ class WorkflowApprovalIndexInitializerTest {
         new WorkflowApprovalIndexInitializer(client, "mongodb://mongo:27017").onApplicationEvent(startup);
 
         verify(policyCollection).createIndex(any(), any(IndexOptions.class));
-        verify(requestCollection).createIndex(any(), any(IndexOptions.class));
+        verify(requestCollection, org.mockito.Mockito.times(2)).createIndex(any(), any(IndexOptions.class));
     }
 
     @Test

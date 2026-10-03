@@ -6,6 +6,7 @@ import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.exception.ApprovalRequestNotFoundException;
 import com.thinklab.domain.model.ApprovalPolicy;
 import com.thinklab.domain.model.ApprovalRequest;
+import com.thinklab.domain.model.ApprovalStage;
 import com.thinklab.domain.model.ApprovalRequest.ApprovalAuditEntry;
 import com.thinklab.domain.model.ApprovalRequest.ApprovalStatus;
 import com.thinklab.domain.model.ApprovalRequest.Decision;
@@ -96,7 +97,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
         ApprovalPolicy created = policies.create(newPolicy(UUID.randomUUID(), approver)).block();
         UUID newApprover = UUID.randomUUID();
 
-        policies.updateBasicInfo(created.getId(), "CAB-v2", 1, List.of(newApprover)).block();
+        policies.updateBasicInfo(created.getId(), "CAB-v2", List.of(ApprovalStage.of(1, List.of(newApprover)))).block();
 
         ApprovalPolicy found = policies.findById(created.getId()).block();
         assertEquals("CAB-v2", found.getName());
@@ -123,7 +124,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
 
         assertNull(policies.findById(unknown).block());
         assertThrows(ApprovalPolicyNotFoundException.class,
-                () -> policies.updateBasicInfo(unknown, "x", 1, List.of(UUID.randomUUID())).block());
+                () -> policies.updateBasicInfo(unknown, "x", List.of(ApprovalStage.of(1, List.of(UUID.randomUUID())))).block());
     }
 
     @Test
@@ -154,10 +155,9 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     void requestAddDecision() {
         UUID approver = UUID.randomUUID();
         ApprovalRequest created = requests.create(newRequest(UUID.randomUUID(), UUID.randomUUID(), approver)).block();
-        Decision decision = new Decision(approver, DecisionOutcome.APPROVE, "ok", Instant.now());
+        var entry = created.captureDecision(approver, DecisionOutcome.APPROVE, "ok", EXECUTOR);
 
-        requests.addDecision(created.getId(), decision, ApprovalStatus.APPROVED,
-                audit("DECISION_CAPTURED", ApprovalStatus.PENDING, ApprovalStatus.APPROVED)).block();
+        requests.addDecision(created, created.getDecisions().get(0), entry).block();
 
         ApprovalRequest found = requests.findById(created.getId()).block();
         assertEquals(ApprovalStatus.APPROVED, found.getStatus());
@@ -222,5 +222,62 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
 
     private static Set<UUID> requestIds(List<ApprovalRequest> list) {
         return list.stream().map(ApprovalRequest::getId).collect(Collectors.toSet());
+    }
+
+    @Test
+    @DisplayName("a chain is stored, walked stage by stage in the database, and shows up in the right approver inbox at each stage")
+    void chainAndInbox() {
+        UUID organisation = UUID.randomUUID();
+        UUID lead = UUID.randomUUID();
+        UUID security = UUID.randomUUID();
+        ApprovalRequest request = ApprovalRequest.createNew(UUID.randomUUID(), organisation, "ChangeRequest", UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), List.of(ApprovalStage.of(1, List.of(lead)), ApprovalStage.of(1, List.of(security))), EXECUTOR);
+        requests.create(request).block();
+
+        assertEquals(Set.of(request.getId()), requestIds(requests.findPendingFor(organisation, lead).collectList().block()));
+        assertTrue(requests.findPendingFor(organisation, security).collectList().block().isEmpty());
+        assertTrue(requests.findPendingFor(UUID.randomUUID(), lead).collectList().block().isEmpty());
+
+        var first = request.captureDecision(lead, DecisionOutcome.APPROVE, "ok", EXECUTOR);
+        requests.addDecision(request, request.getDecisions().get(0), first).block();
+
+        ApprovalRequest found = requests.findById(request.getId()).block();
+        assertEquals(1, found.getCurrentStage());
+        assertEquals(2, found.getStages().size());
+        assertEquals(ApprovalStatus.PENDING, found.getStatus());
+        assertTrue(requests.findPendingFor(organisation, lead).collectList().block().isEmpty());
+        assertEquals(Set.of(request.getId()), requestIds(requests.findPendingFor(organisation, security).collectList().block()));
+    }
+
+    @Test
+    @DisplayName("two votes loaded from the same state cannot both be applied: the second one is refused, not merged")
+    void concurrentVotesAreGuarded() {
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        ApprovalRequest created = requests.create(ApprovalRequest.createNew(UUID.randomUUID(), UUID.randomUUID(), "ChangeRequest", UUID.randomUUID(),
+                UUID.randomUUID(), UUID.randomUUID(), 2, List.of(a, b), EXECUTOR)).block();
+        ApprovalRequest seenByA = requests.findById(created.getId()).block();
+        ApprovalRequest seenByB = requests.findById(created.getId()).block();
+        var entryA = seenByA.captureDecision(a, DecisionOutcome.APPROVE, "ok", EXECUTOR);
+        var entryB = seenByB.captureDecision(b, DecisionOutcome.REJECT, "no", EXECUTOR);
+
+        requests.addDecision(seenByA, seenByA.getDecisions().get(0), entryA).block();
+
+        assertThrows(com.thinklab.domain.exception.InvalidApprovalRequestStatusException.class,
+                () -> requests.addDecision(seenByB, seenByB.getDecisions().get(0), entryB).block());
+        ApprovalRequest found = requests.findById(created.getId()).block();
+        assertEquals(1, found.getDecisions().size());
+        assertEquals(ApprovalStatus.PENDING, found.getStatus());
+    }
+
+    @Test
+    @DisplayName("the (organisationId, status, eligibleApproverIds) inbox index exists on approval_requests")
+    void inboxIndexExists() {
+        requests.create(newRequest(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())).block();
+
+        List<Document> indexes = Flux.from(mongoClient.getDatabase(DATABASE).getCollection("approval_requests").listIndexes()).collectList().block();
+
+        assertTrue(indexes.stream().anyMatch(index -> new Document("organisationId", 1).append("status", 1).append("eligibleApproverIds", 1)
+                .equals(index.get("key", Document.class))), () -> "approval_requests: " + indexes);
     }
 }

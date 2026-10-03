@@ -38,14 +38,17 @@ Built with Java 21 and Micronaut 4.4.2 on a strict Hexagonal Architecture and a 
 
 ```text
 ApprovalPolicy {
-  id, organisationId, name, requiredApprovals, eligibleApproverIds[],
+  id, organisationId, name,
+  stages[ { requiredApprovals, eligibleApproverIds[] } ],   // an ordered chain, 1..10 stages (ADR-033)
+  requiredApprovals, eligibleApproverIds[],                 // = the FIRST stage (the whole quorum of a one-stage policy)
   createdAt, updatedAt
 }
 
 ApprovalRequest {
   id, organisationId, subjectType, subjectId, requesterId, policyId,
-  requiredApprovals, eligibleApproverIds[],   // snapshotted from the policy at creation (ADR-030)
-  status, decisions[ { approverId, outcome, comment?, decidedAt } ],
+  stages[ ... ], currentStage,                // the chain, snapshotted from the policy at creation (ADR-030); currentStage is 1-based
+  requiredApprovals, eligibleApproverIds[],   // = the stage it is waiting on NOW
+  status, decisions[ { approverId, outcome, comment?, decidedAt, stage } ],
   createdAt, updatedAt,
   auditTrail[ { occurredAt, action, executor, fromStatus?, toStatus, detail } ]
 }
@@ -55,13 +58,18 @@ status: PENDING | APPROVED | REJECTED | CANCELLED
 ### Resolution rule (ADR-031)
 
 ```text
-PENDING --decision/capture (APPROVE, reaches quorum)--> APPROVED (terminal)
+PENDING --decision/capture (APPROVE, stage not last, reaches its quorum)--> PENDING, next stage (ADR-033)
+PENDING --decision/capture (APPROVE, last stage reaches quorum)--> APPROVED (terminal)
 PENDING --decision/capture (REJECT, any single one)---> REJECTED (terminal)
 PENDING --control/cancel------------------------------> CANCELLED (terminal)
 ```
 
 `ApprovalPolicy` has no lifecycle — it is tenant configuration, created and updated like reference
 data.
+
+### Chains (ADR-033, ADR-034)
+
+A policy is created with either `stages` (an ordered chain; a person can belong to only one stage) or the original `requiredApprovals` + `eligibleApproverIds` (one stage) - never both. A request walks the stages one at a time; one REJECT at any stage ends it; an approver decides once across the chain. `GET /retrieve?pendingFor={approverId}` is the approver inbox (what they can decide now, oldest first). A decision is a guarded write: a vote that lost a race with another answers 409 and is retried.
 
 ## BIAN Behavior Qualifier Contract (`/workflow-approval/v1`)
 
@@ -86,7 +94,7 @@ data.
 | error_code | HTTP | Meaning |
 |---|---|---|
 | `ERR-WFA-00404` | 404 | ApprovalPolicy or ApprovalRequest not found |
-| `ERR-WFA-00409` | 409 | Illegal/terminal-state transition, ineligible approver, or an approver deciding twice (ADR-019/ADR-031) |
+| `ERR-WFA-00409` | 409 | Illegal/terminal-state transition, ineligible approver (or one whose stage is not reached yet), an approver deciding twice, or a vote that lost a race with another (ADR-019/ADR-031/ADR-033/ADR-034) |
 | `ERR-VALIDATION-00400` | 400 | Payload/header/identifier validation failure |
 | `ERR-INTERNAL-00500` | 500 | Unexpected technical failure |
 
@@ -133,7 +141,7 @@ docker build -t thinklab-workflow-approval-service:latest .
 
 `docs/adr/`: 001 hexagonal reactive stack · 005 UUID identity sovereignty · 013 BIAN service domain
 conventions · 019 HTTP 409 for state conflicts · 030 generic subject and quorum snapshot · 031
-fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events.
+fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox.
 
 ### Automated Tests
 

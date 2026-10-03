@@ -27,7 +27,7 @@
   "info": {
     "_exporter_id": "39879181",
     "_postman_id": "c5e7a9f1-3b4d-5e6f-8a0c-5b7d9f1a3c4e",
-    "description": "Enterprise-grade E2E Postman Suite for the Workflow Approval Service Domain (BIAN-aligned, ADR-001/005/013/019/030/031/032). Covers ApprovalPolicy CRUD and the ApprovalRequest lifecycle under /workflow-approval/v1 (initiate, retrieve, decision/capture, control/cancel, audit-log/retrieve), quorum-reached approval, fail-fast veto rejection, cancellation, RFC 7807 error_code assertions (400/404/409) and W3C traceparent correlation. Requires an organisationId environment variable populated from the Party Reference Data Directory Service Domain.",
+    "description": "Enterprise-grade E2E Postman Suite for the Workflow Approval Service Domain (BIAN-aligned, ADR-001/005/013/019/030/031/032/033/034). Covers ApprovalPolicy CRUD and the ApprovalRequest lifecycle under /workflow-approval/v1 (initiate, retrieve, decision/capture, control/cancel, audit-log/retrieve), quorum-reached approval, fail-fast veto rejection, cancellation, approval chains (ordered stages, one decision per person, the approver inbox), RFC 7807 error_code assertions (400/404/409) and W3C traceparent correlation. Requires an organisationId environment variable populated from the Party Reference Data Directory Service Domain.",
     "name": "Workflow Approval Service - Policy & Quorum Suite",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -1540,6 +1540,822 @@
         }
       ],
       "name": "04. Negative Tests & Boundary Validation"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "['chainLeadId','chainSecAId','chainSecBId'].forEach(k => { if (!pm.environment.get(k)) { pm.environment.set(k, pm.variables.replaceIn('{{$guid}}')); } });"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Two stages; the first one is also the top-level quorum', () => {",
+                  "    pm.expect(json.stages).to.have.lengthOf(2);",
+                  "    pm.expect(json.stages[1].eligibleApproverIds).to.have.lengthOf(2);",
+                  "    pm.expect(json.requiredApprovals).to.eql(1);",
+                  "    pm.expect(json.eligibleApproverIds).to.eql([pm.environment.get('chainLeadId')]);",
+                  "});",
+                  "pm.environment.set('chainPolicyId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Initiate ApprovalPolicy with stages (team lead, then security: 1 of 2)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Production change\",\n  \"stages\": [\n    { \"requiredApprovals\": 1, \"eligibleApproverIds\": [\"{{chainLeadId}}\"] },\n    { \"requiredApprovals\": 1, \"eligibleApproverIds\": [\"{{chainSecAId}}\", \"{{chainSecBId}}\"] }\n  ]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "policy",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/policy/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Initiate ApprovalPolicy - stages together with the single-quorum pair (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ambiguous\",\n  \"requiredApprovals\": 1,\n  \"eligibleApproverIds\": [\"{{chainLeadId}}\"],\n  \"stages\": [ { \"requiredApprovals\": 1, \"eligibleApproverIds\": [\"{{chainSecAId}}\"] } ]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "policy",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/policy/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('The refusal names segregation of duties', () => pm.expect(pm.response.json().detail).to.include('Segregation of duties'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Initiate ApprovalPolicy - the same person in two stages (segregation of duties, 400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Same person twice\",\n  \"stages\": [\n    { \"requiredApprovals\": 1, \"eligibleApproverIds\": [\"{{chainLeadId}}\"] },\n    { \"requiredApprovals\": 1, \"eligibleApproverIds\": [\"{{chainLeadId}}\", \"{{chainSecAId}}\"] }\n  ]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "policy",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/policy/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('PENDING, on stage 1 of 2, only the team lead may decide', () => {",
+                  "    pm.expect(json.status).to.eql('PENDING');",
+                  "    pm.expect(json.currentStage).to.eql(1);",
+                  "    pm.expect(json.stages).to.have.lengthOf(2);",
+                  "    pm.expect(json.eligibleApproverIds).to.eql([pm.environment.get('chainLeadId')]);",
+                  "});",
+                  "pm.environment.set('chainRequestId', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. Initiate ApprovalRequest against the chain policy (waits on stage 1)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subjectType\": \"ChangeRequest\",\n  \"subjectId\": \"{{$guid}}\",\n  \"requesterId\": \"{{requesterId}}\",\n  \"policyId\": \"{{chainPolicyId}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The inbox of the team lead contains the chain request', () => pm.expect(json.some(r => r.id === pm.environment.get('chainRequestId'))).to.eql(true));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. Inbox: the team lead has it",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "pendingFor",
+                  "value": "{{chainLeadId}}"
+                }
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/retrieve?pendingFor={{chainLeadId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The inbox of security does not contain the chain request', () => pm.expect(json.some(r => r.id === pm.environment.get('chainRequestId'))).to.eql(false));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. Inbox: security does not have it yet",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "pendingFor",
+                  "value": "{{chainSecAId}}"
+                }
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/retrieve?pendingFor={{chainSecAId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-WFA-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-WFA-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. Decision: security cannot decide before its stage is reached (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPROVE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{chainSecAId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Still PENDING, now on stage 2, security is eligible, the vote is stage 1', () => {",
+                  "    pm.expect(json.status).to.eql('PENDING');",
+                  "    pm.expect(json.currentStage).to.eql(2);",
+                  "    pm.expect(json.eligibleApproverIds).to.have.members([pm.environment.get('chainSecAId'), pm.environment.get('chainSecBId')]);",
+                  "    pm.expect(json.decisions[0].stage).to.eql(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. Decision: the team lead approves (stage 1 done, request moves to stage 2, still PENDING)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPROVE\",\n  \"comment\": \"ok from the team\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{chainLeadId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The inbox of the team lead does not contain the chain request', () => pm.expect(json.some(r => r.id === pm.environment.get('chainRequestId'))).to.eql(false));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. Inbox: the team lead no longer has it",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "pendingFor",
+                  "value": "{{chainLeadId}}"
+                }
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/retrieve?pendingFor={{chainLeadId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The inbox of security contains the chain request', () => pm.expect(json.some(r => r.id === pm.environment.get('chainRequestId'))).to.eql(true));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. Inbox: security has it now",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "pendingFor",
+                  "value": "{{chainSecAId}}"
+                }
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/retrieve?pendingFor={{chainSecAId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-WFA-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-WFA-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. Decision: the team lead cannot decide again on the same request (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPROVE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{chainLeadId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('APPROVED after two stages and two votes', () => {",
+                  "    pm.expect(json.status).to.eql('APPROVED');",
+                  "    pm.expect(json.decisions).to.have.lengthOf(2);",
+                  "    pm.expect(json.decisions[1].stage).to.eql(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. Decision: security approves (last stage done, resolves APPROVED)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPROVE\",\n  \"comment\": \"reviewed\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{chainSecAId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('INITIATED, then two DECISION_CAPTURED; the first one says the stage moved', () => {",
+                  "    pm.expect(json.map(e => e.action)).to.eql(['INITIATED', 'DECISION_CAPTURED', 'DECISION_CAPTURED']);",
+                  "    pm.expect(json[1].detail).to.include('Stage 1 of 2 complete; now waiting on stage 2.');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. Audit ledger: the stage change is recorded on the first decision",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRequestId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRequestId}}/audit-log/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('chainRejectRequestId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. Setup: a second request against the chain policy (for a veto at stage 2)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subjectType\": \"ChangeRequest\",\n  \"subjectId\": \"{{$guid}}\",\n  \"requesterId\": \"{{requesterId}}\",\n  \"policyId\": \"{{chainPolicyId}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. Decision: the team lead approves the second request",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPROVE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{chainLeadId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRejectRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRejectRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('REJECTED', () => pm.expect(pm.response.json().status).to.eql('REJECTED'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. Decision: a security reviewer REJECTS at stage 2 (the whole request is REJECTED at once)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"REJECT\",\n  \"comment\": \"not now\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{chainSecBId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRejectRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRejectRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "17. Update ApprovalPolicy with a new chain (requests already filed keep theirs)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Production change v2\",\n  \"stages\": [ { \"requiredApprovals\": 1, \"eligibleApproverIds\": [\"{{chainLeadId}}\"] } ]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "policy",
+                "{{chainPolicyId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/policy/{{chainPolicyId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Two stages, snapshotted at filing', () => pm.expect(pm.response.json().stages).to.have.lengthOf(2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "18. Retrieve the finished request (it still has its original two stages)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{chainRequestId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{chainRequestId}}/retrieve"
+            }
+          }
+        }
+      ],
+      "name": "05. Approval Chains (ADR-033, ADR-034)"
     }
   ],
   "variable": [

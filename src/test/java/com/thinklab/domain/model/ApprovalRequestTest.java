@@ -77,18 +77,18 @@ class ApprovalRequestTest {
     @Test
     @DisplayName("reconstitute rejects missing mandatory identity")
     void reconstituteGuards() {
-        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(null, organisationId, "ChangeRequest", subjectId, requesterId, policyId, 2, eligibleApprovers, null, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, null, "ChangeRequest", subjectId, requesterId, policyId, 2, eligibleApprovers, null, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, null, subjectId, requesterId, policyId, 2, eligibleApprovers, null, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", null, requesterId, policyId, 2, eligibleApprovers, null, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", subjectId, null, policyId, 2, eligibleApprovers, null, null, null, null, null));
-        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", subjectId, requesterId, null, 2, eligibleApprovers, null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(null, organisationId, "ChangeRequest", subjectId, requesterId, policyId, 2, eligibleApprovers, null, 0, null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, null, "ChangeRequest", subjectId, requesterId, policyId, 2, eligibleApprovers, null, 0, null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, null, subjectId, requesterId, policyId, 2, eligibleApprovers, null, 0, null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", null, requesterId, policyId, 2, eligibleApprovers, null, 0, null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", subjectId, null, policyId, 2, eligibleApprovers, null, 0, null, null, null, null, null));
+        assertThrows(IllegalArgumentException.class, () -> ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", subjectId, requesterId, null, 2, eligibleApprovers, null, 0, null, null, null, null, null));
     }
 
     @Test
     @DisplayName("reconstitute defaults a missing status to PENDING and null lists to empty")
     void reconstituteDefaults() {
-        ApprovalRequest restored = ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", subjectId, requesterId, policyId, 2, null, null, null, null, null, null);
+        ApprovalRequest restored = ApprovalRequest.reconstitute(id, organisationId, "ChangeRequest", subjectId, requesterId, policyId, 2, null, null, 0, null, null, null, null, null);
 
         assertEquals(ApprovalStatus.PENDING, restored.getStatus());
         assertTrue(restored.getEligibleApproverIds().isEmpty());

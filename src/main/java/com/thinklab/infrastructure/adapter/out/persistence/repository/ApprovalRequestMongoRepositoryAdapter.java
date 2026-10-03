@@ -7,6 +7,7 @@ import com.mongodb.client.model.Updates;
 import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoCollection;
 import com.thinklab.domain.exception.ApprovalRequestNotFoundException;
+import com.thinklab.domain.exception.InvalidApprovalRequestStatusException;
 import com.thinklab.domain.model.ApprovalRequest;
 import com.thinklab.domain.model.ApprovalRequest.ApprovalAuditEntry;
 import com.thinklab.domain.model.ApprovalRequest.ApprovalStatus;
@@ -91,14 +92,32 @@ public class ApprovalRequestMongoRepositoryAdapter implements ApprovalRequestRep
     }
 
     @Override
-    public Mono<Void> addDecision(UUID id, Decision decision, ApprovalStatus status, ApprovalAuditEntry auditEntry) {
+    public Mono<Void> addDecision(ApprovalRequest updated, Decision decision, ApprovalAuditEntry auditEntry) {
+        // Guarded write: it only applies while the request is still PENDING and has exactly the decisions it had when it was loaded, so
+        // two votes that raced for the same state cannot both be applied (the second would otherwise overwrite the stage and status).
+        Bson guard = Filters.and(Filters.eq(FIELD_ID, updated.getId()), Filters.eq("status", ApprovalStatus.PENDING.name()),
+                Filters.size("decisions", updated.getDecisions().size() - 1));
         Bson update = Updates.combine(
                 Updates.push("decisions", DecisionDocument.fromDomain(decision)),
-                Updates.set("status", status.name()),
+                Updates.set("status", updated.getStatus().name()),
+                Updates.set("currentStage", updated.getCurrentStage()),
+                // The stage the request now waits on: what the approver inbox searches.
+                Updates.set("requiredApprovals", updated.getRequiredApprovals()),
+                Updates.set("eligibleApproverIds", updated.getEligibleApproverIds()),
                 Updates.set(FIELD_UPDATED_AT, Instant.now()),
                 Updates.push(FIELD_AUDIT_TRAIL, AuditEntryDocument.fromDomain(auditEntry))
         );
-        return executeUpdate(id, update);
+        return Mono.from(getCollection().updateOne(guard, update))
+                .flatMap(result -> result.getMatchedCount() == 0
+                        ? Mono.error(new InvalidApprovalRequestStatusException("ApprovalRequest was changed by someone else while this decision was being recorded; read it again and retry."))
+                        : Mono.<Void>empty());
+    }
+
+    @Override
+    public Flux<ApprovalRequest> findPendingFor(UUID organisationId, UUID approverId) {
+        Bson filter = Filters.and(Filters.eq("organisationId", organisationId), Filters.eq("status", ApprovalStatus.PENDING.name()),
+                Filters.eq("eligibleApproverIds", approverId), Filters.ne("decisions.approverId", approverId));
+        return Flux.from(getCollection().find(filter)).map(ApprovalRequestPersistenceMapper::toDomain);
     }
 
     @Override

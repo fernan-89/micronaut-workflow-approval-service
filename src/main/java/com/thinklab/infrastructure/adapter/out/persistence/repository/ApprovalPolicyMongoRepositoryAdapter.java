@@ -8,8 +8,10 @@ import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoCollection;
 import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.model.ApprovalPolicy;
+import com.thinklab.domain.model.ApprovalStage;
 import com.thinklab.domain.repository.ApprovalPolicyRepository;
 import com.thinklab.infrastructure.adapter.out.persistence.entity.ApprovalPolicyDocument;
+import com.thinklab.infrastructure.adapter.out.persistence.entity.StageDocument;
 import com.thinklab.infrastructure.adapter.out.persistence.entity.ApprovalPolicyDocument.ApprovalPolicyPersistenceMapper;
 import io.micronaut.context.annotation.Property;
 import jakarta.inject.Singleton;
@@ -80,11 +82,13 @@ public class ApprovalPolicyMongoRepositoryAdapter implements ApprovalPolicyRepos
     }
 
     @Override
-    public Mono<Void> updateBasicInfo(UUID id, String name, int requiredApprovals, List<UUID> eligibleApproverIds) {
+    public Mono<Void> updateBasicInfo(UUID id, String name, List<ApprovalStage> stages) {
         Bson update = Updates.combine(
                 Updates.set("name", name),
-                Updates.set("requiredApprovals", requiredApprovals),
-                Updates.set("eligibleApproverIds", eligibleApproverIds),
+                Updates.set("stages", StageDocument.fromDomain(stages)),
+                // The first stage stays in the original fields, so a reader that predates chains still sees a quorum.
+                Updates.set("requiredApprovals", stages.get(0).requiredApprovals()),
+                Updates.set("eligibleApproverIds", stages.get(0).eligibleApproverIds()),
                 Updates.set(FIELD_UPDATED_AT, Instant.now())
         );
         return Mono.from(getCollection().updateOne(Filters.eq(FIELD_ID, id), update))

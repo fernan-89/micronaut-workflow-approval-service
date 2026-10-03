@@ -7,6 +7,7 @@ import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoCollection;
 import com.mongodb.reactivestreams.client.MongoDatabase;
 import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
+import com.thinklab.domain.model.ApprovalStage;
 import com.thinklab.domain.model.ApprovalPolicy;
 import com.thinklab.infrastructure.adapter.out.persistence.entity.ApprovalPolicyDocument;
 import com.thinklab.infrastructure.adapter.out.persistence.entity.ApprovalPolicyDocument.ApprovalPolicyPersistenceMapper;
@@ -115,7 +116,7 @@ class ApprovalPolicyMongoRepositoryAdapterTest {
         when(mongoCollection.updateOne(any(Bson.class), any(Bson.class)))
                 .thenReturn(Mono.just(UpdateResult.acknowledged(1, 1L, null)));
 
-        StepVerifier.create(adapter.updateBasicInfo(policyId, "CAB-v2", 3, List.of(UUID.randomUUID()))).verifyComplete();
+        StepVerifier.create(adapter.updateBasicInfo(policyId, "CAB-v2", List.of(new ApprovalStage(3, List.of(UUID.randomUUID()))))).verifyComplete();
     }
 
     @Test
@@ -124,7 +125,7 @@ class ApprovalPolicyMongoRepositoryAdapterTest {
         when(mongoCollection.updateOne(any(Bson.class), any(Bson.class)))
                 .thenReturn(Mono.just(UpdateResult.acknowledged(0, 0L, null)));
 
-        StepVerifier.create(adapter.updateBasicInfo(policyId, "CAB-v2", 3, List.of(UUID.randomUUID())))
+        StepVerifier.create(adapter.updateBasicInfo(policyId, "CAB-v2", List.of(new ApprovalStage(3, List.of(UUID.randomUUID())))))
                 .expectError(ApprovalPolicyNotFoundException.class)
                 .verify();
     }

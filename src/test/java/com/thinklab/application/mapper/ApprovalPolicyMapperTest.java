@@ -21,7 +21,7 @@ class ApprovalPolicyMapperTest {
     @DisplayName("toDomain builds a new ApprovalPolicy from the request, id and organisation")
     void toDomain() {
         List<UUID> approvers = List.of(UUID.randomUUID());
-        InitiatePolicyRequest request = new InitiatePolicyRequest("CAB", 1, approvers);
+        InitiatePolicyRequest request = new InitiatePolicyRequest("CAB", 1, approvers, null);
         UUID id = UUID.randomUUID();
         UUID organisationId = UUID.randomUUID();
 

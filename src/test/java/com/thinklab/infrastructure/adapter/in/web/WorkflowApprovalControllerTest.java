@@ -65,18 +65,18 @@ class WorkflowApprovalControllerTest {
     }
 
     private ApprovalPolicyResponse samplePolicyResponse() {
-        return new ApprovalPolicyResponse(id, UUID.randomUUID(), "CAB", 1, List.of(UUID.randomUUID()), Instant.now(), Instant.now());
+        return new ApprovalPolicyResponse(id, UUID.randomUUID(), "CAB", 1, List.of(UUID.randomUUID()), List.of(), Instant.now(), Instant.now());
     }
 
     private ApprovalRequestResponse sampleRequestResponse() {
         return new ApprovalRequestResponse(id, UUID.randomUUID(), "ChangeRequest", UUID.randomUUID(), UUID.randomUUID(),
-                UUID.randomUUID(), 1, List.of(UUID.randomUUID()), "PENDING", List.of(), Instant.now(), Instant.now());
+                UUID.randomUUID(), 1, List.of(UUID.randomUUID()), 1, List.of(), "PENDING", List.of(), Instant.now(), Instant.now());
     }
 
     @Test
     @DisplayName("policy/initiate returns 201 Created")
     void initiatePolicy() {
-        InitiatePolicyRequest request = new InitiatePolicyRequest("CAB", 1, List.of(UUID.randomUUID()));
+        InitiatePolicyRequest request = new InitiatePolicyRequest("CAB", 1, List.of(UUID.randomUUID()), null);
         when(initiatePolicyUseCase.execute(any(), eq(request))).thenReturn(Mono.just(samplePolicyResponse()));
 
         var response = controller.initiatePolicy(TENANT, request).block();
@@ -104,7 +104,7 @@ class WorkflowApprovalControllerTest {
     @Test
     @DisplayName("policy/{id}/update returns 204 No Content")
     void updatePolicy() {
-        UpdatePolicyRequest request = new UpdatePolicyRequest("CAB-v2", 2, List.of(UUID.randomUUID()));
+        UpdatePolicyRequest request = new UpdatePolicyRequest("CAB-v2", 2, List.of(UUID.randomUUID()), null);
         when(updatePolicyUseCase.execute(id, request)).thenReturn(Mono.empty());
 
         assertEquals(HttpStatus.NO_CONTENT, controller.updatePolicy(id, request).block().getStatus());
@@ -132,9 +132,9 @@ class WorkflowApprovalControllerTest {
     @Test
     @DisplayName("retrieve delegates with the optional subjectType/subjectId/status filters")
     void retrieveAll() {
-        when(retrieveApprovalRequestsUseCase.execute(any(), any(), any(), any())).thenReturn(Flux.just(sampleRequestResponse()));
+        when(retrieveApprovalRequestsUseCase.execute(any(), any(), any(), any(), any())).thenReturn(Flux.just(sampleRequestResponse()));
 
-        var result = controller.retrieveAll(TENANT, null, null, null).block();
+        var result = controller.retrieveAll(TENANT, null, null, null, null).block();
         assertEquals(1, result.size());
     }
 
@@ -164,6 +164,16 @@ class WorkflowApprovalControllerTest {
         when(retrieveApprovalAuditLogUseCase.execute(id)).thenReturn(Mono.just(List.of(entry)));
 
         var result = controller.retrieveAuditLog(id).block();
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("retrieve passes the pendingFor approver on to the use case (the inbox)")
+    void retrieveInbox() {
+        UUID approver = UUID.randomUUID();
+        when(retrieveApprovalRequestsUseCase.execute(any(), any(), any(), any(), eq(approver))).thenReturn(Flux.just(sampleRequestResponse()));
+
+        var result = controller.retrieveAll(TENANT, null, null, null, approver).block();
         assertEquals(1, result.size());
     }
 }

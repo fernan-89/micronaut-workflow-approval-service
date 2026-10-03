@@ -23,18 +23,19 @@ public final class ApprovalRequestMapper {
     public static ApprovalRequest toDomain(InitiateApprovalRequestRequest request, UUID sovereignId, UUID organisationId,
                                             ApprovalPolicy policy, String executor) {
         return ApprovalRequest.createNew(sovereignId, organisationId, request.subjectType(), request.subjectId(),
-                request.requesterId(), policy.getId(), policy.getRequiredApprovals(), policy.getEligibleApproverIds(), executor);
+                request.requesterId(), policy.getId(), policy.getStages(), executor);
     }
 
     public static ApprovalRequestResponse toResponse(ApprovalRequest request) {
         List<DecisionResponse> decisions = request.getDecisions().stream().map(ApprovalRequestMapper::toResponse).collect(Collectors.toList());
         return new ApprovalRequestResponse(request.getId(), request.getOrganisationId(), request.getSubjectType(), request.getSubjectId(),
                 request.getRequesterId(), request.getPolicyId(), request.getRequiredApprovals(), request.getEligibleApproverIds(),
+                request.getCurrentStage() + 1, ApprovalPolicyMapper.toStageResponses(request.getStages()),
                 request.getStatus().name(), decisions, request.getCreatedAt(), request.getUpdatedAt());
     }
 
     private static DecisionResponse toResponse(Decision decision) {
-        return new DecisionResponse(decision.approverId(), decision.outcome().name(), decision.comment(), decision.decidedAt());
+        return new DecisionResponse(decision.approverId(), decision.outcome().name(), decision.comment(), decision.decidedAt(), decision.stage() + 1);
     }
 
     public static ApprovalAuditEntryResponse toResponse(ApprovalAuditEntry entry) {

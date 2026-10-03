@@ -43,7 +43,7 @@ class ApprovalPolicyUseCaseTest {
     @Test
     @DisplayName("initiate: fetches a sovereign id and persists the new policy")
     void initiate() {
-        InitiatePolicyRequest request = new InitiatePolicyRequest("CAB", 1, List.of(UUID.randomUUID()));
+        InitiatePolicyRequest request = new InitiatePolicyRequest("CAB", 1, List.of(UUID.randomUUID()), null);
         when(hashServicePort.generateSovereignId("approval-policy-creation")).thenReturn(Mono.just(policy.getId()));
         when(policyRepository.create(any(ApprovalPolicy.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         InitiatePolicyUseCase useCase = new InitiatePolicyUseCase(hashServicePort, policyRepository);
@@ -94,7 +94,7 @@ class ApprovalPolicyUseCaseTest {
         when(policyRepository.findById(id)).thenReturn(Mono.empty());
         UpdatePolicyUseCase useCase = new UpdatePolicyUseCase(policyRepository);
 
-        StepVerifier.create(useCase.execute(id, new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()))))
+        StepVerifier.create(useCase.execute(id, new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()), null)))
                 .expectError(ApprovalPolicyNotFoundException.class)
                 .verify();
     }
@@ -103,10 +103,10 @@ class ApprovalPolicyUseCaseTest {
     @DisplayName("update: applies the domain mutation and persists the granular update")
     void updateSuccess() {
         when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
-        when(policyRepository.updateBasicInfo(any(), any(), anyInt(), any())).thenReturn(Mono.empty());
+        when(policyRepository.updateBasicInfo(any(), any(), any())).thenReturn(Mono.empty());
         UpdatePolicyUseCase useCase = new UpdatePolicyUseCase(policyRepository);
 
-        StepVerifier.create(useCase.execute(policy.getId(), new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()))))
+        StepVerifier.create(useCase.execute(policy.getId(), new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()), null)))
                 .verifyComplete();
     }
 }
