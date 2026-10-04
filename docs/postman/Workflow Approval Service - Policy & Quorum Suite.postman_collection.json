@@ -1537,6 +1537,232 @@
               "raw": "{{base_url}}/workflow-approval/v1/{{illegalRequestId}}/control/cancel"
             }
           }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('returnRequestId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. Setup: Initiate ApprovalRequest for the return test",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subjectType\": \"ServiceRequest\",\n  \"subjectId\": \"{{$guid}}\",\n  \"requesterId\": \"{{requesterId}}\",\n  \"policyId\": \"{{policyId}}\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{organisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. Decision: RETURN needs a comment saying what to fix (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"RETURN\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{approverAId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{returnRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{returnRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('RETURNED, with the comment kept', () => { const json = pm.response.json(); pm.expect(json.status).to.eql('RETURNED'); pm.expect(json.decisions[0].comment).to.eql('Say which laptop model and why'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. Decision: RETURN with a comment sends it back (RETURNED, terminal)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"RETURN\",\n  \"comment\": \"Say which laptop model and why\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{approverAId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{returnRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{returnRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-WFA-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-WFA-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. Decision on a RETURNED ApprovalRequest - Illegal (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"APPROVE\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{approverBId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{returnRequestId}}",
+                "decision",
+                "capture"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{returnRequestId}}/decision/capture"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-WFA-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-WFA-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. Cancel a RETURNED ApprovalRequest - Illegal (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Executor",
+                "value": "{{executor}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "workflow-approval",
+                "v1",
+                "{{returnRequestId}}",
+                "control",
+                "cancel"
+              ],
+              "raw": "{{base_url}}/workflow-approval/v1/{{returnRequestId}}/control/cancel"
+            }
+          }
         }
       ],
       "name": "04. Negative Tests & Boundary Validation"

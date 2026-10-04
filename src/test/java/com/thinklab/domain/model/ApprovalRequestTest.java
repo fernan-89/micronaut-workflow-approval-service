@@ -123,6 +123,29 @@ class ApprovalRequestTest {
     }
 
     @Test
+    @DisplayName("a single RETURN, with a comment, sends the request back: RETURNED, terminal, nothing more can be decided on it")
+    void returnSendsItBack() {
+        request.captureDecision(approverA, DecisionOutcome.APPROVE, null, EXECUTOR);
+        var entry = request.captureDecision(approverB, DecisionOutcome.RETURN, "Say which laptop model and why", EXECUTOR);
+
+        assertEquals(ApprovalStatus.RETURNED, request.getStatus());
+        assertEquals(ApprovalStatus.RETURNED, entry.toStatus());
+        assertEquals("Say which laptop model and why", request.getDecisions().get(1).comment());
+        assertThrows(InvalidApprovalRequestStatusException.class, () -> request.captureDecision(UUID.randomUUID(), DecisionOutcome.APPROVE, null, EXECUTOR));
+        assertThrows(InvalidApprovalRequestStatusException.class, () -> request.cancel(EXECUTOR));
+    }
+
+    @Test
+    @DisplayName("a RETURN needs a comment saying what to fix, and a refused one records nothing")
+    void returnNeedsAComment() {
+        assertThrows(IllegalArgumentException.class, () -> request.captureDecision(approverA, DecisionOutcome.RETURN, null, EXECUTOR));
+        assertThrows(IllegalArgumentException.class, () -> request.captureDecision(approverA, DecisionOutcome.RETURN, "  ", EXECUTOR));
+
+        assertEquals(ApprovalStatus.PENDING, request.getStatus());
+        assertEquals(0, request.getDecisions().size());
+    }
+
+    @Test
     @DisplayName("captureDecision rejects an ineligible approver")
     void ineligibleApproverRejected() {
         UUID stranger = UUID.randomUUID();

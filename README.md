@@ -52,7 +52,7 @@ ApprovalRequest {
   createdAt, updatedAt,
   auditTrail[ { occurredAt, action, executor, fromStatus?, toStatus, detail } ]
 }
-status: PENDING | APPROVED | REJECTED | CANCELLED
+status: PENDING | APPROVED | REJECTED | RETURNED | CANCELLED
 ```
 
 ### Resolution rule (ADR-031)
@@ -61,6 +61,7 @@ status: PENDING | APPROVED | REJECTED | CANCELLED
 PENDING --decision/capture (APPROVE, stage not last, reaches its quorum)--> PENDING, next stage (ADR-033)
 PENDING --decision/capture (APPROVE, last stage reaches quorum)--> APPROVED (terminal)
 PENDING --decision/capture (REJECT, any single one)---> REJECTED (terminal)
+PENDING --decision/capture (RETURN, any single one, comment required)--> RETURNED (terminal, ADR-035)
 PENDING --control/cancel------------------------------> CANCELLED (terminal)
 ```
 
@@ -141,7 +142,7 @@ docker build -t thinklab-workflow-approval-service:latest .
 
 `docs/adr/`: 001 hexagonal reactive stack · 005 UUID identity sovereignty · 013 BIAN service domain
 conventions · 019 HTTP 409 for state conflicts · 030 generic subject and quorum snapshot · 031
-fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox.
+fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes.
 
 ### Automated Tests
 

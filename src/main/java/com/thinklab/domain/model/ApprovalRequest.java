@@ -138,6 +138,9 @@ public class ApprovalRequest {
         requireExecutor(executor);
         Objects.requireNonNull(approverId, "approverId is mandatory to capture a decision.");
         Objects.requireNonNull(outcome, "outcome is mandatory to capture a decision.");
+        if (outcome == DecisionOutcome.RETURN && (comment == null || comment.isBlank())) {
+            throw new IllegalArgumentException("A comment saying what to fix is mandatory to return an ApprovalRequest.");
+        }
         if (status != ApprovalStatus.PENDING) {
             throw new InvalidApprovalRequestStatusException(String.format(
                     "Illegal transition: ApprovalRequest is [%s], expected [PENDING].", status));
@@ -157,6 +160,8 @@ public class ApprovalRequest {
         String detail = String.format("Approver [%s] decided [%s].", approverId, outcome);
         if (outcome == DecisionOutcome.REJECT) {
             this.status = ApprovalStatus.REJECTED;
+        } else if (outcome == DecisionOutcome.RETURN) {
+            this.status = ApprovalStatus.RETURNED;
         } else if (decisionsOnCurrentStage() >= stages.get(currentStage).requiredApprovals()) {
             if (currentStage == stages.size() - 1) {
                 this.status = ApprovalStatus.APPROVED;
@@ -216,9 +221,9 @@ public class ApprovalRequest {
     public Instant getUpdatedAt() { return updatedAt; }
     public List<ApprovalAuditEntry> getAuditTrail() { return Collections.unmodifiableList(auditTrail); }
 
-    public enum ApprovalStatus { PENDING, APPROVED, REJECTED, CANCELLED }
+    public enum ApprovalStatus { PENDING, APPROVED, REJECTED, RETURNED, CANCELLED }
 
-    public enum DecisionOutcome { APPROVE, REJECT }
+    public enum DecisionOutcome { APPROVE, REJECT, RETURN }
 
     /** One vote; {@code stage} is the zero-based stage it was cast on. */
     public record Decision(UUID approverId, DecisionOutcome outcome, String comment, Instant decidedAt, int stage) {
