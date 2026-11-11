@@ -111,19 +111,19 @@ class ApprovalRequestUseCaseTest {
     @DisplayName("retrieveById: not found surfaces ApprovalRequestNotFoundException")
     void retrieveByIdNotFound() {
         UUID id = UUID.randomUUID();
-        when(requestRepository.findById(id)).thenReturn(Mono.empty());
+        when(requestRepository.findById(id, organisationId)).thenReturn(Mono.empty());
         RetrieveApprovalRequestUseCase useCase = new RetrieveApprovalRequestUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(id)).expectError(ApprovalRequestNotFoundException.class).verify();
+        StepVerifier.create(useCase.execute(id, organisationId)).expectError(ApprovalRequestNotFoundException.class).verify();
     }
 
     @Test
     @DisplayName("retrieveById: maps the found request to a response")
     void retrieveByIdFound() {
-        when(requestRepository.findById(request.getId())).thenReturn(Mono.just(request));
+        when(requestRepository.findById(request.getId(), organisationId)).thenReturn(Mono.just(request));
         RetrieveApprovalRequestUseCase useCase = new RetrieveApprovalRequestUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(request.getId())).expectNextCount(1).verifyComplete();
+        StepVerifier.create(useCase.execute(request.getId(), organisationId)).expectNextCount(1).verifyComplete();
     }
 
     // --- RetrieveApprovalRequestsUseCase ---
@@ -145,10 +145,10 @@ class ApprovalRequestUseCaseTest {
     @DisplayName("captureDecision: not found surfaces ApprovalRequestNotFoundException")
     void captureDecisionNotFound() {
         UUID id = UUID.randomUUID();
-        when(requestRepository.findById(id)).thenReturn(Mono.empty());
+        when(requestRepository.findById(id, organisationId)).thenReturn(Mono.empty());
         CaptureDecisionUseCase useCase = new CaptureDecisionUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(id, approverA, new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok"), EXECUTOR))
+        StepVerifier.create(useCase.execute(id, organisationId, approverA, new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok"), EXECUTOR))
                 .expectError(ApprovalRequestNotFoundException.class)
                 .verify();
     }
@@ -156,11 +156,11 @@ class ApprovalRequestUseCaseTest {
     @Test
     @DisplayName("captureDecision: applies the domain decision, persists it and returns the resolved response")
     void captureDecisionSuccess() {
-        when(requestRepository.findById(request.getId())).thenReturn(Mono.just(request));
+        when(requestRepository.findById(request.getId(), organisationId)).thenReturn(Mono.just(request));
         lenient().when(requestRepository.addDecision(any(), any(), any())).thenReturn(Mono.empty());
         CaptureDecisionUseCase useCase = new CaptureDecisionUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(request.getId(), approverA, new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok"), EXECUTOR))
+        StepVerifier.create(useCase.execute(request.getId(), organisationId, approverA, new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok"), EXECUTOR))
                 .assertNext(response -> assertEquals("APPROVED", response.status()))
                 .verifyComplete();
     }
@@ -171,20 +171,20 @@ class ApprovalRequestUseCaseTest {
     @DisplayName("cancel: not found surfaces ApprovalRequestNotFoundException")
     void cancelNotFound() {
         UUID id = UUID.randomUUID();
-        when(requestRepository.findById(id)).thenReturn(Mono.empty());
+        when(requestRepository.findById(id, organisationId)).thenReturn(Mono.empty());
         CancelApprovalRequestUseCase useCase = new CancelApprovalRequestUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(id, EXECUTOR)).expectError(ApprovalRequestNotFoundException.class).verify();
+        StepVerifier.create(useCase.execute(id, organisationId, EXECUTOR)).expectError(ApprovalRequestNotFoundException.class).verify();
     }
 
     @Test
     @DisplayName("cancel: applies the domain transition and persists the granular status update")
     void cancelSuccess() {
-        when(requestRepository.findById(request.getId())).thenReturn(Mono.just(request));
+        when(requestRepository.findById(request.getId(), organisationId)).thenReturn(Mono.just(request));
         when(requestRepository.updateStatus(any(), any(), any())).thenReturn(Mono.empty());
         CancelApprovalRequestUseCase useCase = new CancelApprovalRequestUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(request.getId(), EXECUTOR)).verifyComplete();
+        StepVerifier.create(useCase.execute(request.getId(), organisationId, EXECUTOR)).verifyComplete();
     }
 
     // --- RetrieveApprovalAuditLogUseCase ---
@@ -193,19 +193,19 @@ class ApprovalRequestUseCaseTest {
     @DisplayName("auditLog: not found surfaces ApprovalRequestNotFoundException")
     void auditLogNotFound() {
         UUID id = UUID.randomUUID();
-        when(requestRepository.findById(id)).thenReturn(Mono.empty());
+        when(requestRepository.findById(id, organisationId)).thenReturn(Mono.empty());
         RetrieveApprovalAuditLogUseCase useCase = new RetrieveApprovalAuditLogUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(id)).expectError(ApprovalRequestNotFoundException.class).verify();
+        StepVerifier.create(useCase.execute(id, organisationId)).expectError(ApprovalRequestNotFoundException.class).verify();
     }
 
     @Test
     @DisplayName("auditLog: collects the ledger into a Mono<List<...>>, preserving order")
     void auditLogSuccess() {
-        when(requestRepository.findById(request.getId())).thenReturn(Mono.just(request));
+        when(requestRepository.findById(request.getId(), organisationId)).thenReturn(Mono.just(request));
         RetrieveApprovalAuditLogUseCase useCase = new RetrieveApprovalAuditLogUseCase(requestRepository);
 
-        StepVerifier.create(useCase.execute(request.getId()))
+        StepVerifier.create(useCase.execute(request.getId(), organisationId))
                 .assertNext(entries -> assertEquals(1, entries.size()))
                 .verifyComplete();
     }
@@ -223,5 +223,21 @@ class ApprovalRequestUseCaseTest {
                 .assertNext(response -> assertEquals(older.getId(), response.id()))
                 .assertNext(response -> assertEquals(newer.getId(), response.id()))
                 .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("every by-id route looks the request up in the caller's tenant: another tenant's request is the same as none, and nothing is read, decided or cancelled")
+    void anotherTenantsRequest() {
+        UUID other = UUID.randomUUID();
+        when(requestRepository.findById(request.getId(), other)).thenReturn(Mono.empty());
+        CaptureDecisionUseCase capture = new CaptureDecisionUseCase(requestRepository);
+
+        StepVerifier.create(new RetrieveApprovalRequestUseCase(requestRepository).execute(request.getId(), other)).expectError(ApprovalRequestNotFoundException.class).verify();
+        StepVerifier.create(new RetrieveApprovalAuditLogUseCase(requestRepository).execute(request.getId(), other)).expectError(ApprovalRequestNotFoundException.class).verify();
+        StepVerifier.create(capture.execute(request.getId(), other, approverA, new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok"), EXECUTOR)).expectError(ApprovalRequestNotFoundException.class).verify();
+        StepVerifier.create(new CancelApprovalRequestUseCase(requestRepository).execute(request.getId(), other, EXECUTOR)).expectError(ApprovalRequestNotFoundException.class).verify();
+
+        org.mockito.Mockito.verify(requestRepository, org.mockito.Mockito.never()).addDecision(any(), any(), any());
+        org.mockito.Mockito.verify(requestRepository, org.mockito.Mockito.never()).updateStatus(any(), any(), any());
     }
 }

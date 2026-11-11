@@ -74,8 +74,8 @@ A policy is created with either `stages` (an ordered chain; a person can belong 
 
 ## BIAN Behavior Qualifier Contract (`/workflow-approval/v1`)
 
-`X-Tenant-Id` is mandatory on `policy/initiate`, `policy/retrieve` (collection), `initiate` and
-`retrieve` (collection); `X-Executor` is mandatory on every mutation. There is no `DELETE`.
+`X-Tenant-Id` is mandatory on every route that reads or changes a policy or a request (ADR-037): another tenant's request, or an update of another tenant's policy, is a 404;
+`X-Executor` is mandatory on every mutation. There is no `DELETE`.
 
 | Behavior Qualifier | Method & Path |
 |---|---|
@@ -137,13 +137,13 @@ docker build -t thinklab-workflow-approval-service:latest .
 | `MICRONAUT_SERVER_PORT` | `8090` | HTTP port |
 | `MONGODB_URI` | `mongodb://localhost:27017/thinklab_workflow_approval_db` | MongoDB connection |
 | `HASH_SERVICE_URL` | `http://localhost:8080` | Hash Token Registry base URL |
-| `THINKLAB_APPROVAL_POLICY_TENANT_SCOPED` | `false` | When `true`, `POST /initiate` only accepts a policy of the tenant that files the request (another tenant's is a 404, ADR-036). Off by default because change management uses one CAB/ECAB policy id for every tenant |
+| `THINKLAB_APPROVAL_POLICY_TENANT_SCOPED` | `false` | When `true`, `POST /initiate` and `policy/{id}/retrieve` only accept a policy of the caller's tenant (another tenant's is a 404, ADR-036). Off by default because change management uses one CAB/ECAB policy id for every tenant |
 
 ## Architecture Decision Records
 
 `docs/adr/`: 001 hexagonal reactive stack · 005 UUID identity sovereignty · 013 BIAN service domain
 conventions · 019 HTTP 409 for state conflicts · 030 generic subject and quorum snapshot · 031
-fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes · 036 policy tenant scoping is opt-in.
+fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes · 036 policy tenant scoping is opt-in · 037 the by-id routes are scoped to the tenant (every by-id route takes `X-Tenant-Id`; another tenant's request or policy update is a 404).
 
 ### Automated Tests
 

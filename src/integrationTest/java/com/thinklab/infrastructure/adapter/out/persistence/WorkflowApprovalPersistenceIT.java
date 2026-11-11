@@ -153,7 +153,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     void requestCreateAndFind() {
         ApprovalRequest created = requests.create(newRequest(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())).block();
 
-        ApprovalRequest found = requests.findById(created.getId()).block();
+        ApprovalRequest found = requests.findById(created.getId(), created.getOrganisationId()).block();
 
         assertEquals(ApprovalStatus.PENDING, found.getStatus());
         assertEquals(1, found.getAuditTrail().size());
@@ -169,7 +169,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
 
         requests.addDecision(created, created.getDecisions().get(0), entry).block();
 
-        ApprovalRequest found = requests.findById(created.getId()).block();
+        ApprovalRequest found = requests.findById(created.getId(), created.getOrganisationId()).block();
         assertEquals(ApprovalStatus.APPROVED, found.getStatus());
         assertEquals(1, found.getDecisions().size());
         assertEquals(2, found.getAuditTrail().size());
@@ -183,7 +183,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
         requests.updateStatus(created.getId(), ApprovalStatus.CANCELLED,
                 audit("CANCELLED", ApprovalStatus.PENDING, ApprovalStatus.CANCELLED)).block();
 
-        ApprovalRequest found = requests.findById(created.getId()).block();
+        ApprovalRequest found = requests.findById(created.getId(), created.getOrganisationId()).block();
         assertEquals(ApprovalStatus.CANCELLED, found.getStatus());
     }
 
@@ -206,11 +206,20 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     }
 
     @Test
+    @DisplayName("a request is found by id for its own organisation only: another tenant's is the same as none")
+    void requestScopedToItsOrganisation() {
+        ApprovalRequest created = requests.create(newRequest(UUID.randomUUID(), UUID.randomUUID())).block();
+
+        assertEquals(created.getId(), requests.findById(created.getId(), created.getOrganisationId()).block().getId());
+        assertNull(requests.findById(created.getId(), UUID.randomUUID()).block());
+    }
+
+    @Test
     @DisplayName("an unknown ApprovalRequest is empty on read and ApprovalRequestNotFoundException on update")
     void requestNotFound() {
         UUID unknown = UUID.randomUUID();
 
-        assertNull(requests.findById(unknown).block());
+        assertNull(requests.findById(unknown, UUID.randomUUID()).block());
         assertThrows(ApprovalRequestNotFoundException.class, () -> requests.updateStatus(unknown, ApprovalStatus.CANCELLED,
                 audit("CANCELLED", ApprovalStatus.PENDING, ApprovalStatus.CANCELLED)).block());
     }
@@ -251,7 +260,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
         var first = request.captureDecision(lead, DecisionOutcome.APPROVE, "ok", EXECUTOR);
         requests.addDecision(request, request.getDecisions().get(0), first).block();
 
-        ApprovalRequest found = requests.findById(request.getId()).block();
+        ApprovalRequest found = requests.findById(request.getId(), request.getOrganisationId()).block();
         assertEquals(1, found.getCurrentStage());
         assertEquals(2, found.getStages().size());
         assertEquals(ApprovalStatus.PENDING, found.getStatus());
@@ -266,8 +275,8 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
         UUID b = UUID.randomUUID();
         ApprovalRequest created = requests.create(ApprovalRequest.createNew(UUID.randomUUID(), UUID.randomUUID(), "ChangeRequest", UUID.randomUUID(),
                 UUID.randomUUID(), UUID.randomUUID(), 2, List.of(a, b), EXECUTOR)).block();
-        ApprovalRequest seenByA = requests.findById(created.getId()).block();
-        ApprovalRequest seenByB = requests.findById(created.getId()).block();
+        ApprovalRequest seenByA = requests.findById(created.getId(), created.getOrganisationId()).block();
+        ApprovalRequest seenByB = requests.findById(created.getId(), created.getOrganisationId()).block();
         var entryA = seenByA.captureDecision(a, DecisionOutcome.APPROVE, "ok", EXECUTOR);
         var entryB = seenByB.captureDecision(b, DecisionOutcome.REJECT, "no", EXECUTOR);
 
@@ -275,7 +284,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
 
         assertThrows(com.thinklab.domain.exception.InvalidApprovalRequestStatusException.class,
                 () -> requests.addDecision(seenByB, seenByB.getDecisions().get(0), entryB).block());
-        ApprovalRequest found = requests.findById(created.getId()).block();
+        ApprovalRequest found = requests.findById(created.getId(), created.getOrganisationId()).block();
         assertEquals(1, found.getDecisions().size());
         assertEquals(ApprovalStatus.PENDING, found.getStatus());
     }

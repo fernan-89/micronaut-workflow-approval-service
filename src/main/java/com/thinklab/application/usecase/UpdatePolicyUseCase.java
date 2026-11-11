@@ -23,10 +23,10 @@ public class UpdatePolicyUseCase {
         this.policyRepository = policyRepository;
     }
 
-    public Mono<Void> execute(UUID id, UpdatePolicyRequest request) {
+    public Mono<Void> execute(UUID id, UUID organisationId, UpdatePolicyRequest request) {
         log.info("[USE CASE] Updating ApprovalPolicy ID: {}", id);
 
-        return policyRepository.findById(id)
+        return policyRepository.findById(id, organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalPolicyNotFoundException(id)))
                 .flatMap(policy -> {
                     policy.update(request.name(), ApprovalPolicyMapper.toStages(request.requiredApprovals(), request.eligibleApproverIds(), request.stages()));

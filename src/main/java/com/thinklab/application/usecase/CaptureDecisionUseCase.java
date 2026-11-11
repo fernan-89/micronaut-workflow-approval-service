@@ -29,10 +29,10 @@ public class CaptureDecisionUseCase {
         this.requestRepository = requestRepository;
     }
 
-    public Mono<ApprovalRequestResponse> execute(UUID id, UUID approverId, CaptureDecisionRequest request, String executor) {
+    public Mono<ApprovalRequestResponse> execute(UUID id, UUID organisationId, UUID approverId, CaptureDecisionRequest request, String executor) {
         log.info("[USE CASE] Capturing decision [{}] from approver [{}] for ApprovalRequest ID: {}", request.outcome(), approverId, id);
 
-        return requestRepository.findById(id)
+        return requestRepository.findById(id, organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalRequestNotFoundException(id)))
                 .flatMap(approvalRequest -> {
                     var entry = approvalRequest.captureDecision(approverId, request.outcome(), request.comment(), executor);

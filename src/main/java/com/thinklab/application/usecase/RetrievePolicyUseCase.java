@@ -4,6 +4,7 @@ import com.thinklab.application.dto.response.ApprovalPolicyResponse;
 import com.thinklab.application.mapper.ApprovalPolicyMapper;
 import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.repository.ApprovalPolicyRepository;
+import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +20,18 @@ public class RetrievePolicyUseCase {
 
     private final ApprovalPolicyRepository policyRepository;
 
-    public RetrievePolicyUseCase(ApprovalPolicyRepository policyRepository) {
+    private final boolean policyTenantScoped;
+
+    /** @param policyTenantScoped when true (ADR-036) only a policy of the caller's tenant is found; when false (the default) it is found by id alone */
+    public RetrievePolicyUseCase(ApprovalPolicyRepository policyRepository, @Value("${thinklab.approval.policy-tenant-scoped:false}") boolean policyTenantScoped) {
         this.policyRepository = policyRepository;
+        this.policyTenantScoped = policyTenantScoped;
     }
 
-    public Mono<ApprovalPolicyResponse> execute(UUID id) {
+    public Mono<ApprovalPolicyResponse> execute(UUID id, UUID organisationId) {
         log.info("[USE CASE] Retrieving ApprovalPolicy by ID: {}", id);
 
-        return policyRepository.findById(id)
+        return (policyTenantScoped ? policyRepository.findById(id, organisationId) : policyRepository.findById(id))
                 .switchIfEmpty(Mono.error(new ApprovalPolicyNotFoundException(id)))
                 .map(ApprovalPolicyMapper::toResponse);
     }

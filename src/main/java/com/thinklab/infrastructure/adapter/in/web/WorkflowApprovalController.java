@@ -100,8 +100,8 @@ public class WorkflowApprovalController {
 
     /** Behavior Qualifier: {@code policy/retrieve}. */
     @Get("/policy/{id}/retrieve")
-    public Mono<HttpResponse<ApprovalPolicyResponse>> retrievePolicyById(@PathVariable UUID id) {
-        return retrievePolicyUseCase.execute(id).map(HttpResponse::ok);
+    public Mono<HttpResponse<ApprovalPolicyResponse>> retrievePolicyById(@PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId) {
+        return retrievePolicyUseCase.execute(id, UUID.fromString(tenantId)).map(HttpResponse::ok);
     }
 
     /** Behavior Qualifier: {@code policy/retrieve} (collection). Filterable by the policy's own {@code name} (e.g. "CAB"). */
@@ -114,8 +114,8 @@ public class WorkflowApprovalController {
 
     /** Behavior Qualifier: {@code policy/update}. */
     @Put("/policy/{id}/update")
-    public Mono<HttpResponse<Void>> updatePolicy(@PathVariable UUID id, @Body @Valid UpdatePolicyRequest request) {
-        return updatePolicyUseCase.execute(id, request).thenReturn(HttpResponse.noContent());
+    public Mono<HttpResponse<Void>> updatePolicy(@PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId, @Body @Valid UpdatePolicyRequest request) {
+        return updatePolicyUseCase.execute(id, UUID.fromString(tenantId), request).thenReturn(HttpResponse.noContent());
     }
 
     /** Behavior Qualifier: {@code initiate}. Files a new ApprovalRequest against a policy. */
@@ -132,8 +132,8 @@ public class WorkflowApprovalController {
 
     /** Behavior Qualifier: {@code retrieve}. */
     @Get("/{id}/retrieve")
-    public Mono<HttpResponse<ApprovalRequestResponse>> retrieveById(@PathVariable UUID id) {
-        return retrieveApprovalRequestUseCase.execute(id).map(HttpResponse::ok);
+    public Mono<HttpResponse<ApprovalRequestResponse>> retrieveById(@PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId) {
+        return retrieveApprovalRequestUseCase.execute(id, UUID.fromString(tenantId)).map(HttpResponse::ok);
     }
 
     /**
@@ -154,22 +154,22 @@ public class WorkflowApprovalController {
     /** Behavior Qualifier: {@code decision/capture}. One approver's vote; resolves the request synchronously when quorum/veto is reached. */
     @Put("/{id}/decision/capture")
     public Mono<HttpResponse<ApprovalRequestResponse>> captureDecision(
-            @PathVariable UUID id, @Header(EXECUTOR_HEADER) @NotBlank String executor, @Body @Valid CaptureDecisionRequest request
+            @PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId, @Header(EXECUTOR_HEADER) @NotBlank String executor, @Body @Valid CaptureDecisionRequest request
     ) {
         log.info("[ACTION: CAPTURE_DECISION] [EXECUTOR: {}] decision for ApprovalRequest ID: {}", executor, id);
 
-        return captureDecisionUseCase.execute(id, UUID.fromString(executor), request, executor).map(HttpResponse::ok);
+        return captureDecisionUseCase.execute(id, UUID.fromString(tenantId), UUID.fromString(executor), request, executor).map(HttpResponse::ok);
     }
 
     /** Behavior Qualifier: {@code control/cancel}. Terminal, replaces DELETE. */
     @Put("/{id}/control/cancel")
-    public Mono<HttpResponse<Void>> controlCancel(@PathVariable UUID id, @Header(EXECUTOR_HEADER) @NotBlank String executor) {
-        return cancelApprovalRequestUseCase.execute(id, executor).thenReturn(HttpResponse.noContent());
+    public Mono<HttpResponse<Void>> controlCancel(@PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId, @Header(EXECUTOR_HEADER) @NotBlank String executor) {
+        return cancelApprovalRequestUseCase.execute(id, UUID.fromString(tenantId), executor).thenReturn(HttpResponse.noContent());
     }
 
     /** Behavior Qualifier: {@code audit-log/retrieve}. Immutable forensic ledger of the ApprovalRequest. */
     @Get("/{id}/audit-log/retrieve")
-    public Mono<List<ApprovalAuditEntryResponse>> retrieveAuditLog(@PathVariable UUID id) {
-        return retrieveApprovalAuditLogUseCase.execute(id);
+    public Mono<List<ApprovalAuditEntryResponse>> retrieveAuditLog(@PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId) {
+        return retrieveApprovalAuditLogUseCase.execute(id, UUID.fromString(tenantId));
     }
 }
