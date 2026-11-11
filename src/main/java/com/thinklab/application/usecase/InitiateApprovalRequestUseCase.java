@@ -38,7 +38,8 @@ public class InitiateApprovalRequestUseCase {
     public Mono<ApprovalRequestResponse> execute(UUID organisationId, InitiateApprovalRequestRequest request, String executor) {
         log.info("[USE CASE] Initiating ApprovalRequest for organisation: {} subject: {}/{}", organisationId, request.subjectType(), request.subjectId());
 
-        return policyRepository.findById(request.policyId())
+        // A request is filed against a policy of its own tenant only: another tenant's policy is the same as none (404).
+        return policyRepository.findById(request.policyId(), organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalPolicyNotFoundException(request.policyId())))
                 .flatMap(policy -> hashServicePort.generateSovereignId("approval-request-creation")
                         .map(sovereignId -> ApprovalRequestMapper.toDomain(request, sovereignId, organisationId, policy, executor)))

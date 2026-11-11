@@ -58,17 +58,30 @@ class ApprovalRequestUseCaseTest {
     @DisplayName("initiate: an unknown policy surfaces ApprovalPolicyNotFoundException")
     void initiatePolicyNotFound() {
         InitiateApprovalRequestRequest body = new InitiateApprovalRequestRequest("ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId());
-        when(policyRepository.findById(policy.getId())).thenReturn(Mono.empty());
+        when(policyRepository.findById(policy.getId(), organisationId)).thenReturn(Mono.empty());
         InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository);
 
         StepVerifier.create(useCase.execute(organisationId, body, EXECUTOR)).expectError(ApprovalPolicyNotFoundException.class).verify();
     }
 
     @Test
+    @DisplayName("initiate: a policy of another tenant is the same as none, and nothing is filed")
+    void initiateAnotherTenantsPolicy() {
+        UUID other = UUID.randomUUID();
+        InitiateApprovalRequestRequest body = new InitiateApprovalRequestRequest("ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId());
+        when(policyRepository.findById(policy.getId(), other)).thenReturn(Mono.empty());
+        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository);
+
+        StepVerifier.create(useCase.execute(other, body, EXECUTOR)).expectError(ApprovalPolicyNotFoundException.class).verify();
+
+        org.mockito.Mockito.verify(requestRepository, org.mockito.Mockito.never()).create(any(ApprovalRequest.class));
+    }
+
+    @Test
     @DisplayName("initiate: loads the policy, snapshots its quorum, fetches a sovereign id and persists the request")
     void initiateSuccess() {
         InitiateApprovalRequestRequest body = new InitiateApprovalRequestRequest("ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId());
-        when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
+        when(policyRepository.findById(policy.getId(), organisationId)).thenReturn(Mono.just(policy));
         when(hashServicePort.generateSovereignId("approval-request-creation")).thenReturn(Mono.just(request.getId()));
         when(requestRepository.create(any(ApprovalRequest.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository);

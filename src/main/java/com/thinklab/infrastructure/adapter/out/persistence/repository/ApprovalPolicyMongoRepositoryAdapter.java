@@ -70,6 +70,12 @@ public class ApprovalPolicyMongoRepositoryAdapter implements ApprovalPolicyRepos
     }
 
     @Override
+    public Mono<ApprovalPolicy> findById(UUID id, UUID organisationId) {
+        return Mono.from(getCollection().find(Filters.and(Filters.eq(FIELD_ID, id), Filters.eq("organisationId", organisationId))).first())
+                .map(ApprovalPolicyPersistenceMapper::toDomain);
+    }
+
+    @Override
     public Flux<ApprovalPolicy> findAllByOrganisationId(UUID organisationId, String name) {
         List<Bson> filters = new ArrayList<>();
         filters.add(Filters.eq("organisationId", organisationId));
