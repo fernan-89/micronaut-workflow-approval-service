@@ -20,6 +20,9 @@ public interface ApprovalPolicyRepository {
 
     Mono<ApprovalPolicy> findById(UUID id);
 
+    /** The policy only if it belongs to {@code organisationId}: another tenant's policy is the same as none. */
+    Mono<ApprovalPolicy> findById(UUID id, UUID organisationId);
+
     /** Tenant-scoped listing, optionally filtered by the policy's own {@code name}. */
     Flux<ApprovalPolicy> findAllByOrganisationId(UUID organisationId, String name);
 

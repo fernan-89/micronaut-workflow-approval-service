@@ -91,6 +91,16 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     }
 
     @Test
+    @DisplayName("a policy is found by id for its own organisation only: another tenant's is the same as none")
+    void policyScopedToItsOrganisation() {
+        UUID organisation = UUID.randomUUID();
+        ApprovalPolicy created = policies.create(newPolicy(organisation, UUID.randomUUID())).block();
+
+        assertEquals(created.getId(), policies.findById(created.getId(), organisation).block().getId());
+        assertNull(policies.findById(created.getId(), UUID.randomUUID()).block());
+    }
+
+    @Test
     @DisplayName("updateBasicInfo persists every field")
     void policyUpdateBasicInfo() {
         UUID approver = UUID.randomUUID();
