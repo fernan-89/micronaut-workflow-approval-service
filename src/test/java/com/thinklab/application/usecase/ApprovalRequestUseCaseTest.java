@@ -59,9 +59,23 @@ class ApprovalRequestUseCaseTest {
     void initiatePolicyNotFound() {
         InitiateApprovalRequestRequest body = new InitiateApprovalRequestRequest("ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId());
         when(policyRepository.findById(policy.getId(), organisationId)).thenReturn(Mono.empty());
-        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository);
+        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository, true);
 
         StepVerifier.create(useCase.execute(organisationId, body, EXECUTOR)).expectError(ApprovalPolicyNotFoundException.class).verify();
+    }
+
+    @Test
+    @DisplayName("initiate: with the tenant scoping off (the default) the policy is found by id alone, as before")
+    void initiateUnscopedPolicy() {
+        InitiateApprovalRequestRequest body = new InitiateApprovalRequestRequest("ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId());
+        when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
+        when(hashServicePort.generateSovereignId("approval-request-creation")).thenReturn(Mono.just(request.getId()));
+        when(requestRepository.create(any(ApprovalRequest.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository, false);
+
+        StepVerifier.create(useCase.execute(UUID.randomUUID(), body, EXECUTOR)).expectNextCount(1).verifyComplete();
+
+        org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.never()).findById(any(UUID.class), any(UUID.class));
     }
 
     @Test
@@ -70,7 +84,7 @@ class ApprovalRequestUseCaseTest {
         UUID other = UUID.randomUUID();
         InitiateApprovalRequestRequest body = new InitiateApprovalRequestRequest("ChangeRequest", UUID.randomUUID(), UUID.randomUUID(), policy.getId());
         when(policyRepository.findById(policy.getId(), other)).thenReturn(Mono.empty());
-        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository);
+        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository, true);
 
         StepVerifier.create(useCase.execute(other, body, EXECUTOR)).expectError(ApprovalPolicyNotFoundException.class).verify();
 
@@ -84,7 +98,7 @@ class ApprovalRequestUseCaseTest {
         when(policyRepository.findById(policy.getId(), organisationId)).thenReturn(Mono.just(policy));
         when(hashServicePort.generateSovereignId("approval-request-creation")).thenReturn(Mono.just(request.getId()));
         when(requestRepository.create(any(ApprovalRequest.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository);
+        InitiateApprovalRequestUseCase useCase = new InitiateApprovalRequestUseCase(hashServicePort, policyRepository, requestRepository, true);
 
         StepVerifier.create(useCase.execute(organisationId, body, EXECUTOR))
                 .assertNext(response -> assertEquals(policy.getRequiredApprovals(), response.requiredApprovals()))

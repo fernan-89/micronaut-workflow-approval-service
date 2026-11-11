@@ -137,12 +137,13 @@ docker build -t thinklab-workflow-approval-service:latest .
 | `MICRONAUT_SERVER_PORT` | `8090` | HTTP port |
 | `MONGODB_URI` | `mongodb://localhost:27017/thinklab_workflow_approval_db` | MongoDB connection |
 | `HASH_SERVICE_URL` | `http://localhost:8080` | Hash Token Registry base URL |
+| `THINKLAB_APPROVAL_POLICY_TENANT_SCOPED` | `false` | When `true`, `POST /initiate` only accepts a policy of the tenant that files the request (another tenant's is a 404, ADR-036). Off by default because change management uses one CAB/ECAB policy id for every tenant |
 
 ## Architecture Decision Records
 
 `docs/adr/`: 001 hexagonal reactive stack · 005 UUID identity sovereignty · 013 BIAN service domain
 conventions · 019 HTTP 409 for state conflicts · 030 generic subject and quorum snapshot · 031
-fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes.
+fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes · 036 policy tenant scoping is opt-in.
 
 ### Automated Tests
 

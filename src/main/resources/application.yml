@@ -161,6 +161,10 @@ warmup:
 # client-credentials flow. Off by default; set THINKLAB_SECURITY_ENABLED=true to require bearer tokens.
 # ----------------------------------------------------------------------------------------------
 thinklab:
+  # ADR-036: when true, a request can only be filed against a policy of its own tenant (another tenant's policy is a 404). Off by default: a deployment whose policy ids
+  # are shared by every tenant (the CAB/ECAB ids of change management) would stop working. Turn it on when every client uses per-tenant policies.
+  approval:
+    policy-tenant-scoped: ${THINKLAB_APPROVAL_POLICY_TENANT_SCOPED:false}
   security:
     enabled: ${THINKLAB_SECURITY_ENABLED:false}
     service-name: thinklab-workflow-approval-service
