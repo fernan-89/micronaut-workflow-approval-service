@@ -125,6 +125,15 @@ class ApprovalPolicyUseCaseTest {
     }
 
     @Test
+    @DisplayName("retrieveById without a tenant works while the scoping is off (change management reads the shared policy that way) and is refused while it is on")
+    void retrieveByIdWithoutTenant() {
+        when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
+
+        StepVerifier.create(new RetrievePolicyUseCase(policyRepository, false).execute(policy.getId(), null)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(new RetrievePolicyUseCase(policyRepository, true).execute(policy.getId(), null)).expectError(IllegalArgumentException.class).verify();
+    }
+
+    @Test
     @DisplayName("update never touches a policy of another tenant: it is the same as none, and nothing is written")
     void updateAnotherTenantsPolicy() {
         UUID other = UUID.randomUUID();

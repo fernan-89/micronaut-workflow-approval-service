@@ -100,8 +100,8 @@ public class WorkflowApprovalController {
 
     /** Behavior Qualifier: {@code policy/retrieve}. */
     @Get("/policy/{id}/retrieve")
-    public Mono<HttpResponse<ApprovalPolicyResponse>> retrievePolicyById(@PathVariable UUID id, @Header(TENANT_HEADER) @NotBlank String tenantId) {
-        return retrievePolicyUseCase.execute(id, UUID.fromString(tenantId)).map(HttpResponse::ok);
+    public Mono<HttpResponse<ApprovalPolicyResponse>> retrievePolicyById(@PathVariable UUID id, @Header(TENANT_HEADER) @Nullable String tenantId) {
+        return Mono.defer(() -> retrievePolicyUseCase.execute(id, tenantId == null || tenantId.isBlank() ? null : UUID.fromString(tenantId))).map(HttpResponse::ok);
     }
 
     /** Behavior Qualifier: {@code policy/retrieve} (collection). Filterable by the policy's own {@code name} (e.g. "CAB"). */
