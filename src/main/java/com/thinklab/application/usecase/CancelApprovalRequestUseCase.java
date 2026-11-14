@@ -21,10 +21,10 @@ public class CancelApprovalRequestUseCase {
         this.requestRepository = requestRepository;
     }
 
-    public Mono<Void> execute(UUID id, String executor) {
+    public Mono<Void> execute(UUID id, UUID organisationId, String executor) {
         log.info("[USE CASE] Cancelling ApprovalRequest ID: {}", id);
 
-        return requestRepository.findById(id)
+        return requestRepository.findById(id, organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalRequestNotFoundException(id)))
                 .flatMap(approvalRequest -> {
                     var entry = approvalRequest.cancel(executor);

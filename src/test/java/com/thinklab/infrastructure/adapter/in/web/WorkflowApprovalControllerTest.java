@@ -86,9 +86,9 @@ class WorkflowApprovalControllerTest {
     @Test
     @DisplayName("policy/{id}/retrieve returns 200 OK")
     void retrievePolicyById() {
-        when(retrievePolicyUseCase.execute(id)).thenReturn(Mono.just(samplePolicyResponse()));
+        when(retrievePolicyUseCase.execute(id, UUID.fromString(TENANT))).thenReturn(Mono.just(samplePolicyResponse()));
 
-        var response = controller.retrievePolicyById(id).block();
+        var response = controller.retrievePolicyById(id, TENANT).block();
         assertEquals(HttpStatus.OK, response.getStatus());
     }
 
@@ -105,9 +105,9 @@ class WorkflowApprovalControllerTest {
     @DisplayName("policy/{id}/update returns 204 No Content")
     void updatePolicy() {
         UpdatePolicyRequest request = new UpdatePolicyRequest("CAB-v2", 2, List.of(UUID.randomUUID()), null);
-        when(updatePolicyUseCase.execute(id, request)).thenReturn(Mono.empty());
+        when(updatePolicyUseCase.execute(id, UUID.fromString(TENANT), request)).thenReturn(Mono.empty());
 
-        assertEquals(HttpStatus.NO_CONTENT, controller.updatePolicy(id, request).block().getStatus());
+        assertEquals(HttpStatus.NO_CONTENT, controller.updatePolicy(id, TENANT, request).block().getStatus());
     }
 
     @Test
@@ -123,9 +123,9 @@ class WorkflowApprovalControllerTest {
     @Test
     @DisplayName("{id}/retrieve returns 200 OK")
     void retrieveById() {
-        when(retrieveApprovalRequestUseCase.execute(id)).thenReturn(Mono.just(sampleRequestResponse()));
+        when(retrieveApprovalRequestUseCase.execute(id, UUID.fromString(TENANT))).thenReturn(Mono.just(sampleRequestResponse()));
 
-        var response = controller.retrieveById(id).block();
+        var response = controller.retrieveById(id, TENANT).block();
         assertEquals(HttpStatus.OK, response.getStatus());
     }
 
@@ -143,27 +143,27 @@ class WorkflowApprovalControllerTest {
     void captureDecision() {
         String approver = UUID.randomUUID().toString();
         CaptureDecisionRequest request = new CaptureDecisionRequest(DecisionOutcome.APPROVE, "ok");
-        when(captureDecisionUseCase.execute(eq(id), any(), eq(request), eq(approver))).thenReturn(Mono.just(sampleRequestResponse()));
+        when(captureDecisionUseCase.execute(eq(id), eq(UUID.fromString(TENANT)), any(), eq(request), eq(approver))).thenReturn(Mono.just(sampleRequestResponse()));
 
-        var response = controller.captureDecision(id, approver, request).block();
+        var response = controller.captureDecision(id, TENANT, approver, request).block();
         assertEquals(HttpStatus.OK, response.getStatus());
     }
 
     @Test
     @DisplayName("{id}/control/cancel returns 204 No Content")
     void controlCancel() {
-        when(cancelApprovalRequestUseCase.execute(id, EXECUTOR)).thenReturn(Mono.empty());
+        when(cancelApprovalRequestUseCase.execute(id, UUID.fromString(TENANT), EXECUTOR)).thenReturn(Mono.empty());
 
-        assertEquals(HttpStatus.NO_CONTENT, controller.controlCancel(id, EXECUTOR).block().getStatus());
+        assertEquals(HttpStatus.NO_CONTENT, controller.controlCancel(id, TENANT, EXECUTOR).block().getStatus());
     }
 
     @Test
     @DisplayName("{id}/audit-log/retrieve delegates to RetrieveApprovalAuditLogUseCase")
     void retrieveAuditLog() {
         ApprovalAuditEntryResponse entry = new ApprovalAuditEntryResponse(Instant.now(), "INITIATED", EXECUTOR, null, "PENDING", "d");
-        when(retrieveApprovalAuditLogUseCase.execute(id)).thenReturn(Mono.just(List.of(entry)));
+        when(retrieveApprovalAuditLogUseCase.execute(id, UUID.fromString(TENANT))).thenReturn(Mono.just(List.of(entry)));
 
-        var result = controller.retrieveAuditLog(id).block();
+        var result = controller.retrieveAuditLog(id, TENANT).block();
         assertEquals(1, result.size());
     }
 

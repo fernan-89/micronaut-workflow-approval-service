@@ -68,8 +68,8 @@ public class ApprovalRequestMongoRepositoryAdapter implements ApprovalRequestRep
     }
 
     @Override
-    public Mono<ApprovalRequest> findById(UUID id) {
-        return Mono.from(getCollection().find(Filters.eq(FIELD_ID, id)).first())
+    public Mono<ApprovalRequest> findById(UUID id, UUID organisationId) {
+        return Mono.from(getCollection().find(Filters.and(Filters.eq(FIELD_ID, id), Filters.eq("organisationId", organisationId))).first())
                 .map(ApprovalRequestPersistenceMapper::toDomain);
     }
 

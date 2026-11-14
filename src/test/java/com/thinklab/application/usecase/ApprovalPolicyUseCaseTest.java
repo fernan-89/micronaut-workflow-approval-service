@@ -60,18 +60,18 @@ class ApprovalPolicyUseCaseTest {
     void retrieveByIdNotFound() {
         UUID id = UUID.randomUUID();
         when(policyRepository.findById(id)).thenReturn(Mono.empty());
-        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository);
+        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository, false);
 
-        StepVerifier.create(useCase.execute(id)).expectError(ApprovalPolicyNotFoundException.class).verify();
+        StepVerifier.create(useCase.execute(id, UUID.randomUUID())).expectError(ApprovalPolicyNotFoundException.class).verify();
     }
 
     @Test
     @DisplayName("retrieveById: maps the found policy to a response")
     void retrieveByIdFound() {
         when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
-        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository);
+        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository, false);
 
-        StepVerifier.create(useCase.execute(policy.getId())).expectNextCount(1).verifyComplete();
+        StepVerifier.create(useCase.execute(policy.getId(), policy.getOrganisationId())).expectNextCount(1).verifyComplete();
     }
 
     // --- RetrievePoliciesUseCase ---
@@ -91,10 +91,11 @@ class ApprovalPolicyUseCaseTest {
     @DisplayName("update: not found surfaces ApprovalPolicyNotFoundException")
     void updateNotFound() {
         UUID id = UUID.randomUUID();
-        when(policyRepository.findById(id)).thenReturn(Mono.empty());
+        UUID other = UUID.randomUUID();
+        when(policyRepository.findById(id, other)).thenReturn(Mono.empty());
         UpdatePolicyUseCase useCase = new UpdatePolicyUseCase(policyRepository);
 
-        StepVerifier.create(useCase.execute(id, new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()), null)))
+        StepVerifier.create(useCase.execute(id, other, new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()), null)))
                 .expectError(ApprovalPolicyNotFoundException.class)
                 .verify();
     }
@@ -102,11 +103,37 @@ class ApprovalPolicyUseCaseTest {
     @Test
     @DisplayName("update: applies the domain mutation and persists the granular update")
     void updateSuccess() {
-        when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
+        when(policyRepository.findById(policy.getId(), policy.getOrganisationId())).thenReturn(Mono.just(policy));
         when(policyRepository.updateBasicInfo(any(), any(), any())).thenReturn(Mono.empty());
         UpdatePolicyUseCase useCase = new UpdatePolicyUseCase(policyRepository);
 
-        StepVerifier.create(useCase.execute(policy.getId(), new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()), null)))
+        StepVerifier.create(useCase.execute(policy.getId(), policy.getOrganisationId(), new UpdatePolicyRequest("CAB-v2", 1, List.of(UUID.randomUUID()), null)))
                 .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("retrieveById with the tenant scoping on finds only a policy of the caller's tenant: another tenant's is the same as none")
+    void retrieveByIdScoped() {
+        UUID other = UUID.randomUUID();
+        when(policyRepository.findById(policy.getId(), policy.getOrganisationId())).thenReturn(Mono.just(policy));
+        when(policyRepository.findById(policy.getId(), other)).thenReturn(Mono.empty());
+        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository, true);
+
+        StepVerifier.create(useCase.execute(policy.getId(), policy.getOrganisationId())).expectNextCount(1).verifyComplete();
+        StepVerifier.create(useCase.execute(policy.getId(), other)).expectError(ApprovalPolicyNotFoundException.class).verify();
+        org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.never()).findById(any(UUID.class));
+    }
+
+    @Test
+    @DisplayName("update never touches a policy of another tenant: it is the same as none, and nothing is written")
+    void updateAnotherTenantsPolicy() {
+        UUID other = UUID.randomUUID();
+        when(policyRepository.findById(policy.getId(), other)).thenReturn(Mono.empty());
+        UpdatePolicyUseCase useCase = new UpdatePolicyUseCase(policyRepository);
+
+        StepVerifier.create(useCase.execute(policy.getId(), other, new UpdatePolicyRequest("Hijacked", 1, List.of(UUID.randomUUID()), null)))
+                .expectError(ApprovalPolicyNotFoundException.class).verify();
+
+        org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.never()).updateBasicInfo(any(), any(), any());
     }
 }

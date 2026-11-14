@@ -20,7 +20,8 @@ public interface ApprovalRequestRepository {
 
     Mono<ApprovalRequest> create(ApprovalRequest request);
 
-    Mono<ApprovalRequest> findById(UUID id);
+    /** The request only if it belongs to {@code organisationId}: another tenant's request is the same as none (ADR-037). */
+    Mono<ApprovalRequest> findById(UUID id, UUID organisationId);
 
     /**
      * Tenant-scoped listing, optionally filtered by the referenced subject and/or status - this is

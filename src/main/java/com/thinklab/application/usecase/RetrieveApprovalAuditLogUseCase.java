@@ -33,10 +33,10 @@ public class RetrieveApprovalAuditLogUseCase {
         this.requestRepository = requestRepository;
     }
 
-    public Mono<List<ApprovalAuditEntryResponse>> execute(UUID id) {
+    public Mono<List<ApprovalAuditEntryResponse>> execute(UUID id, UUID organisationId) {
         log.info("[USE CASE] Retrieving audit ledger for ApprovalRequest ID: {}", id);
 
-        return requestRepository.findById(id)
+        return requestRepository.findById(id, organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalRequestNotFoundException(id)))
                 .map(approvalRequest -> approvalRequest.getAuditTrail().stream().map(ApprovalRequestMapper::toResponse).collect(Collectors.toList()));
     }

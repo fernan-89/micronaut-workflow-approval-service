@@ -23,10 +23,10 @@ public class RetrieveApprovalRequestUseCase {
         this.requestRepository = requestRepository;
     }
 
-    public Mono<ApprovalRequestResponse> execute(UUID id) {
+    public Mono<ApprovalRequestResponse> execute(UUID id, UUID organisationId) {
         log.info("[USE CASE] Retrieving ApprovalRequest by ID: {}", id);
 
-        return requestRepository.findById(id)
+        return requestRepository.findById(id, organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalRequestNotFoundException(id)))
                 .map(ApprovalRequestMapper::toResponse);
     }

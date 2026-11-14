@@ -9,8 +9,8 @@ Accepted (2026-11-11). Decided with the owner, who chose the optional switch ove
 ## Decision
 - `thinklab.approval.policy-tenant-scoped` (`THINKLAB_APPROVAL_POLICY_TENANT_SCOPED`, **false by default**): when true, `initiate` finds the policy only in the tenant that files the request, and another tenant's policy is the same as none (404 `ApprovalPolicyNotFoundException`). When false, nothing changes.
 - Turn it on in a deployment whose clients all use per-tenant policies (procurement does, through its approval bands). Change management can only run with it on once its policies are per tenant, which it is not yet.
-- The by-id routes (policy retrieve and update, request retrieve, decision capture, cancel, audit log) are **not** tenant-scoped by this switch: their callers send no tenant on some of them, so scoping them is a contract change across three repositories, left as a follow-up.
+- The by-id routes are scoped by ADR-037 (requests and policy update always; policy retrieve through this same switch).
 
 ## Consequences
 - Positive: the isolation is available now without breaking the deployments that share policies; the default leaves every existing deployment as it was.
-- Negative: the default is the open behaviour, so an operator has to know to turn it on; the by-id routes remain open to anyone who knows an id.
+- Negative: the default is the open behaviour, so an operator has to know to turn it on (this affects `initiate` and the policy read by id).
