@@ -208,7 +208,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     @Test
     @DisplayName("a request is found by id for its own organisation only: another tenant's is the same as none")
     void requestScopedToItsOrganisation() {
-        ApprovalRequest created = requests.create(newRequest(UUID.randomUUID(), UUID.randomUUID())).block();
+        ApprovalRequest created = requests.create(newRequest(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())).block();
 
         assertEquals(created.getId(), requests.findById(created.getId(), created.getOrganisationId()).block().getId());
         assertNull(requests.findById(created.getId(), UUID.randomUUID()).block());
