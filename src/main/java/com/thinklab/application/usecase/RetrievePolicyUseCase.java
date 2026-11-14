@@ -5,6 +5,7 @@ import com.thinklab.application.mapper.ApprovalPolicyMapper;
 import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.repository.ApprovalPolicyRepository;
 import io.micronaut.context.annotation.Value;
+import io.micronaut.core.annotation.Nullable;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,9 +29,13 @@ public class RetrievePolicyUseCase {
         this.policyTenantScoped = policyTenantScoped;
     }
 
-    public Mono<ApprovalPolicyResponse> execute(UUID id, UUID organisationId) {
+    /** @param organisationId the caller's tenant; only needed (and then mandatory) when the tenant scoping is on, because change management reads one shared CAB/ECAB policy without it */
+    public Mono<ApprovalPolicyResponse> execute(UUID id, @Nullable UUID organisationId) {
         log.info("[USE CASE] Retrieving ApprovalPolicy by ID: {}", id);
 
+        if (policyTenantScoped && organisationId == null) {
+            return Mono.error(new IllegalArgumentException("The X-Tenant-Id header is required to read a policy while the tenant scoping is on."));
+        }
         return (policyTenantScoped ? policyRepository.findById(id, organisationId) : policyRepository.findById(id))
                 .switchIfEmpty(Mono.error(new ApprovalPolicyNotFoundException(id)))
                 .map(ApprovalPolicyMapper::toResponse);

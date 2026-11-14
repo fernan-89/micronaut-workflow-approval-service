@@ -93,6 +93,15 @@ class WorkflowApprovalControllerTest {
     }
 
     @Test
+    @DisplayName("policy/{id}/retrieve without a tenant header (change management reads the shared CAB/ECAB policy that way) passes no tenant on; a blank one is the same as none")
+    void retrievePolicyWithoutTenant() {
+        when(retrievePolicyUseCase.execute(id, null)).thenReturn(Mono.just(samplePolicyResponse()));
+
+        assertEquals(HttpStatus.OK, controller.retrievePolicyById(id, null).block().getStatus());
+        assertEquals(HttpStatus.OK, controller.retrievePolicyById(id, " ").block().getStatus());
+    }
+
+    @Test
     @DisplayName("policy/retrieve delegates with the optional name filter")
     void retrievePolicies() {
         when(retrievePoliciesUseCase.execute(any(), eq("CAB"))).thenReturn(Flux.just(samplePolicyResponse()));
