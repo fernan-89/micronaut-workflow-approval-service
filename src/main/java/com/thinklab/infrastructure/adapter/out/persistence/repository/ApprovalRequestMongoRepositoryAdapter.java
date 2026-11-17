@@ -122,21 +122,24 @@ public class ApprovalRequestMongoRepositoryAdapter implements ApprovalRequestRep
 
     @Override
     public Mono<Void> updateStatus(UUID id, ApprovalStatus status, ApprovalAuditEntry auditEntry) {
+        // Guarded write (platform race audit): only if the request still has the status the caller read, which is the fromStatus of the entry.
+        // Without it a cancel validated against PENDING could overwrite the APPROVED that a decision recorded in between.
         Bson update = Updates.combine(
                 Updates.set("status", status.name()),
                 Updates.set(FIELD_UPDATED_AT, Instant.now()),
                 Updates.push(FIELD_AUDIT_TRAIL, AuditEntryDocument.fromDomain(auditEntry))
         );
-        return executeUpdate(id, update);
-    }
-
-    private Mono<Void> executeUpdate(UUID id, Bson update) {
-        return Mono.from(getCollection().updateOne(Filters.eq(FIELD_ID, id), update))
+        Bson guard = Filters.and(Filters.eq(FIELD_ID, id), Filters.eq("status", auditEntry.fromStatus().name()));
+        return Mono.from(getCollection().updateOne(guard, update))
                 .flatMap(result -> {
-                    if (result.getMatchedCount() == 0) {
-                        return Mono.error(new ApprovalRequestNotFoundException(id));
+                    if (result.getMatchedCount() > 0) {
+                        return Mono.<Void>empty();
                     }
-                    return Mono.empty();
+                    return Mono.from(getCollection().countDocuments(Filters.eq(FIELD_ID, id)))
+                            .flatMap(count -> count == 0
+                                    ? Mono.<Void>error(new ApprovalRequestNotFoundException(id))
+                                    : Mono.<Void>error(new InvalidApprovalRequestStatusException(
+                                            "ApprovalRequest was changed by someone else while this change was being recorded; read it again and retry.")));
                 });
     }
 }
