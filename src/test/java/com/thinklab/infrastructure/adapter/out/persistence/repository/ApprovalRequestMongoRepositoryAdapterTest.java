@@ -140,13 +140,19 @@ class ApprovalRequestMongoRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("a zero-matched update translates into ApprovalRequestNotFoundException")
+    @DisplayName("updateStatus is a guarded write on the status that was read: no match is a 404 when the request does not exist and a conflict when it does")
     void zeroMatchedUpdate() {
         when(mongoCollection.updateOne(any(Bson.class), any(Bson.class)))
                 .thenReturn(Mono.just(UpdateResult.acknowledged(0, 0L, null)));
 
+        when(mongoCollection.countDocuments(any(Bson.class))).thenReturn(Mono.just(0L));
         StepVerifier.create(adapter.updateStatus(requestId, ApprovalStatus.CANCELLED, entry))
                 .expectError(ApprovalRequestNotFoundException.class)
+                .verify();
+
+        when(mongoCollection.countDocuments(any(Bson.class))).thenReturn(Mono.just(1L));
+        StepVerifier.create(adapter.updateStatus(requestId, ApprovalStatus.CANCELLED, entry))
+                .expectError(com.thinklab.domain.exception.InvalidApprovalRequestStatusException.class)
                 .verify();
     }
 

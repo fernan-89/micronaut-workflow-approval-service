@@ -95,7 +95,7 @@ A policy is created with either `stages` (an ordered chain; a person can belong 
 | error_code | HTTP | Meaning |
 |---|---|---|
 | `ERR-WFA-00404` | 404 | ApprovalPolicy or ApprovalRequest not found |
-| `ERR-WFA-00409` | 409 | Illegal/terminal-state transition, ineligible approver (or one whose stage is not reached yet), an approver deciding twice, or a vote that lost a race with another (ADR-019/ADR-031/ADR-033/ADR-034) |
+| `ERR-WFA-00409` | 409 | Illegal/terminal-state transition, ineligible approver (or one whose stage is not reached yet), an approver deciding twice, or a vote or a cancel that lost a race with another (ADR-038; ADR-019/ADR-031/ADR-033/ADR-034) |
 | `ERR-VALIDATION-00400` | 400 | Payload/header/identifier validation failure |
 | `ERR-INTERNAL-00500` | 500 | Unexpected technical failure |
 
