@@ -77,28 +77,10 @@ A policy is created with either `stages` (an ordered chain; a person can belong 
 `X-Tenant-Id` is mandatory on every route that reads or changes a policy or a request (ADR-037): another tenant's request, or an update of another tenant's policy, is a 404;
 `X-Executor` is mandatory on every mutation. There is no `DELETE`.
 
-| Behavior Qualifier | Method & Path |
-|---|---|
-| policy/initiate | `POST /workflow-approval/v1/policy/initiate` |
-| policy/retrieve (single) | `GET /workflow-approval/v1/policy/{id}/retrieve` |
-| policy/retrieve (collection, filter `name`) | `GET /workflow-approval/v1/policy/retrieve` |
-| policy/update | `PUT /workflow-approval/v1/policy/{id}/update` |
-| initiate | `POST /workflow-approval/v1/initiate` |
-| retrieve (single) | `GET /workflow-approval/v1/{id}/retrieve` |
-| retrieve (collection, filter `subjectType`/`subjectId`/`status`) | `GET /workflow-approval/v1/retrieve` |
-| decision/capture | `PUT /workflow-approval/v1/{id}/decision/capture` |
-| control/cancel | `PUT /workflow-approval/v1/{id}/control/cancel` |
-| audit-log/retrieve | `GET /workflow-approval/v1/{id}/audit-log/retrieve` |
-
+| Behavior Qualifier | Method & Path |---|---| policy/initiate | `POST /workflow-approval/v1/policy/initiate` | policy/retrieve (single) | `GET /workflow-approval/v1/policy/{id}/retrieve` | policy/retrieve (collection, filter `name`) | `GET /workflow-approval/v1/policy/retrieve` | policy/update | `PUT /workflow-approval/v1/policy/{id}/update` | initiate | `POST /workflow-approval/v1/initiate` | retrieve (single) | `GET /workflow-approval/v1/{id}/retrieve` | retrieve (collection, filter `subjectType`/`subjectId`/`status`) | `GET /workflow-approval/v1/retrieve` | decision/capture | `PUT /workflow-approval/v1/{id}/decision/capture` | control/cancel | `PUT /workflow-approval/v1/{id}/control/cancel` | audit-log/retrieve | `GET /workflow-approval/v1/{id}/audit-log/retrieve` 
 ### Error catalog (RFC 7807, `error_code` field)
 
-| error_code | HTTP | Meaning |
-|---|---|---|
-| `ERR-WFA-00404` | 404 | ApprovalPolicy or ApprovalRequest not found |
-| `ERR-WFA-00409` | 409 | Illegal/terminal-state transition, ineligible approver (or one whose stage is not reached yet), an approver deciding twice, or a vote or a cancel that lost a race with another (ADR-038; ADR-019/ADR-031/ADR-033/ADR-034) |
-| `ERR-VALIDATION-00400` | 400 | Payload/header/identifier validation failure |
-| `ERR-INTERNAL-00500` | 500 | Unexpected technical failure |
-
+| error_code | HTTP | Meaning |---|---|---| `ERR-WFA-00404` | 404 | ApprovalPolicy or ApprovalRequest not found | `ERR-WFA-00409` | 409 | Illegal/terminal-state transition, ineligible approver (or one whose stage is not reached yet), an approver deciding twice, or a vote or a cancel that lost a race with another (ADR-038; ADR-019/ADR-031/ADR-033/ADR-034) | `ERR-VALIDATION-00400` | 400 | Payload/header/identifier validation failure | `ERR-INTERNAL-00500` | 500 | Unexpected technical failure 
 Example:
 
 ```bash
@@ -132,18 +114,12 @@ docker build -t thinklab-workflow-approval-service:latest .
 
 ### Configuration
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `MICRONAUT_SERVER_PORT` | `8090` | HTTP port |
-| `MONGODB_URI` | `mongodb://localhost:27017/thinklab_workflow_approval_db` | MongoDB connection |
-| `HASH_SERVICE_URL` | `http://localhost:8080` | Hash Token Registry base URL |
-| `THINKLAB_APPROVAL_POLICY_TENANT_SCOPED` | `false` | When `true`, `POST /initiate` and `policy/{id}/retrieve` only accept a policy of the caller's tenant (another tenant's is a 404, ADR-036). Off by default because change management uses one CAB/ECAB policy id for every tenant |
-
+| Variable | Default | Purpose |---|---|---| `MICRONAUT_SERVER_PORT` | `8090` | HTTP port | `MONGODB_URI` | `mongodb://localhost:27017/thinklab_workflow_approval_db` | MongoDB connection | `HASH_SERVICE_URL` | `http://localhost:8080` | Hash Token Registry base URL | `THINKLAB_APPROVAL_POLICY_TENANT_SCOPED` | `false` | When `true`, `POST /initiate` and `policy/{id}/retrieve` only accept a policy of the caller's tenant (another tenant's is a 404, ADR-036). Off by default because change management uses one CAB/ECAB policy id for every tenant 
 ## Architecture Decision Records
 
 `docs/adr/`: 001 hexagonal reactive stack · 005 UUID identity sovereignty · 013 BIAN service domain
 conventions · 019 HTTP 409 for state conflicts · 030 generic subject and quorum snapshot · 031
-fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes · 036 policy tenant scoping is opt-in · 037 the by-id routes are scoped to the tenant (every by-id route takes `X-Tenant-Id`; another tenant's request or policy update is a 404).
+fail-fast veto quorum resolution · 032 synchronous HTTP integration, not events · 033 approval chains (ordered stages, one decision per person) · 034 guarded decision write and the approver inbox · 035 return for changes · 036 policy tenant scoping is opt-in (superseded by 039) · 037 the by-id routes are scoped to the tenant (every by-id route takes `X-Tenant-Id`; another tenant's request or policy update is a 404) · 038 cancel is a guarded write · 039 a policy is always found in the caller's tenant (the switch of 036 is gone; every call carries X-Tenant-Id).
 
 ### Automated Tests
 

@@ -81,9 +81,10 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     @DisplayName("a created ApprovalPolicy is read back as-is")
     void policyCreateAndFind() {
         UUID approver = UUID.randomUUID();
-        ApprovalPolicy created = policies.create(newPolicy(UUID.randomUUID(), approver)).block();
+        UUID organisation = UUID.randomUUID();
+        ApprovalPolicy created = policies.create(newPolicy(organisation, approver)).block();
 
-        ApprovalPolicy found = policies.findById(created.getId()).block();
+        ApprovalPolicy found = policies.findById(created.getId(), organisation).block();
 
         assertEquals("CAB", found.getName());
         assertEquals(1, found.getRequiredApprovals());
@@ -104,12 +105,13 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     @DisplayName("updateBasicInfo persists every field")
     void policyUpdateBasicInfo() {
         UUID approver = UUID.randomUUID();
-        ApprovalPolicy created = policies.create(newPolicy(UUID.randomUUID(), approver)).block();
+        UUID organisation = UUID.randomUUID();
+        ApprovalPolicy created = policies.create(newPolicy(organisation, approver)).block();
         UUID newApprover = UUID.randomUUID();
 
         policies.updateBasicInfo(created.getId(), "CAB-v2", List.of(ApprovalStage.of(1, List.of(newApprover)))).block();
 
-        ApprovalPolicy found = policies.findById(created.getId()).block();
+        ApprovalPolicy found = policies.findById(created.getId(), organisation).block();
         assertEquals("CAB-v2", found.getName());
         assertEquals(List.of(newApprover), found.getEligibleApproverIds());
     }
@@ -132,7 +134,7 @@ class WorkflowApprovalPersistenceIT implements TestPropertyProvider {
     void policyNotFound() {
         UUID unknown = UUID.randomUUID();
 
-        assertNull(policies.findById(unknown).block());
+        assertNull(policies.findById(unknown, UUID.randomUUID()).block());
         assertThrows(ApprovalPolicyNotFoundException.class,
                 () -> policies.updateBasicInfo(unknown, "x", List.of(ApprovalStage.of(1, List.of(UUID.randomUUID())))).block());
     }

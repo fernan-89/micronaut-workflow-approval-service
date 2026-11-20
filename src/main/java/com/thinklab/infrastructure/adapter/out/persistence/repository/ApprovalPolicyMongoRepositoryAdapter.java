@@ -64,12 +64,6 @@ public class ApprovalPolicyMongoRepositoryAdapter implements ApprovalPolicyRepos
     }
 
     @Override
-    public Mono<ApprovalPolicy> findById(UUID id) {
-        return Mono.from(getCollection().find(Filters.eq(FIELD_ID, id)).first())
-                .map(ApprovalPolicyPersistenceMapper::toDomain);
-    }
-
-    @Override
     public Mono<ApprovalPolicy> findById(UUID id, UUID organisationId) {
         return Mono.from(getCollection().find(Filters.and(Filters.eq(FIELD_ID, id), Filters.eq("organisationId", organisationId))).first())
                 .map(ApprovalPolicyPersistenceMapper::toDomain);

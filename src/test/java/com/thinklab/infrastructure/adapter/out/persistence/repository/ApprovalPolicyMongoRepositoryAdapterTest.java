@@ -79,23 +79,6 @@ class ApprovalPolicyMongoRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("findById maps the found document back to the domain aggregate")
-    void findById() {
-        FindPublisher<ApprovalPolicyDocument> publisher = mock(FindPublisher.class);
-        when(mongoCollection.find(any(Bson.class))).thenReturn(publisher);
-        when(publisher.first()).thenReturn(publisher);
-        doAnswer(invocation -> {
-            org.reactivestreams.Subscriber<ApprovalPolicyDocument> subscriber = invocation.getArgument(0);
-            Flux.just(ApprovalPolicyPersistenceMapper.toDocument(policy)).subscribe(subscriber);
-            return null;
-        }).when(publisher).subscribe(any());
-
-        StepVerifier.create(adapter.findById(policyId))
-                .assertNext(found -> org.junit.jupiter.api.Assertions.assertEquals(policyId, found.getId()))
-                .verifyComplete();
-    }
-
-    @Test
     @DisplayName("findById scoped to an organisation filters on the id and on the organisation, and maps the found document back")
     void findByIdScoped() {
         FindPublisher<ApprovalPolicyDocument> publisher = mock(FindPublisher.class);

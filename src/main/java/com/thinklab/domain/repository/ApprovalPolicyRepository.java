@@ -18,8 +18,6 @@ public interface ApprovalPolicyRepository {
 
     Mono<ApprovalPolicy> create(ApprovalPolicy policy);
 
-    Mono<ApprovalPolicy> findById(UUID id);
-
     /** The policy only if it belongs to {@code organisationId}: another tenant's policy is the same as none. */
     Mono<ApprovalPolicy> findById(UUID id, UUID organisationId);
 
