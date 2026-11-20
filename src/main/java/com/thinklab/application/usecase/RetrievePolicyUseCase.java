@@ -4,8 +4,6 @@ import com.thinklab.application.dto.response.ApprovalPolicyResponse;
 import com.thinklab.application.mapper.ApprovalPolicyMapper;
 import com.thinklab.domain.exception.ApprovalPolicyNotFoundException;
 import com.thinklab.domain.repository.ApprovalPolicyRepository;
-import io.micronaut.context.annotation.Value;
-import io.micronaut.core.annotation.Nullable;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,22 +19,15 @@ public class RetrievePolicyUseCase {
 
     private final ApprovalPolicyRepository policyRepository;
 
-    private final boolean policyTenantScoped;
-
-    /** @param policyTenantScoped when true (ADR-036) only a policy of the caller's tenant is found; when false (the default) it is found by id alone */
-    public RetrievePolicyUseCase(ApprovalPolicyRepository policyRepository, @Value("${thinklab.approval.policy-tenant-scoped:false}") boolean policyTenantScoped) {
+    public RetrievePolicyUseCase(ApprovalPolicyRepository policyRepository) {
         this.policyRepository = policyRepository;
-        this.policyTenantScoped = policyTenantScoped;
     }
 
-    /** @param organisationId the caller's tenant; only needed (and then mandatory) when the tenant scoping is on, because change management reads one shared CAB/ECAB policy without it */
-    public Mono<ApprovalPolicyResponse> execute(UUID id, @Nullable UUID organisationId) {
+    /** @param organisationId the caller's tenant: only a policy of that tenant is found, another tenant's is the same as none (ADR-039) */
+    public Mono<ApprovalPolicyResponse> execute(UUID id, UUID organisationId) {
         log.info("[USE CASE] Retrieving ApprovalPolicy by ID: {}", id);
 
-        if (policyTenantScoped && organisationId == null) {
-            return Mono.error(new IllegalArgumentException("The X-Tenant-Id header is required to read a policy while the tenant scoping is on."));
-        }
-        return (policyTenantScoped ? policyRepository.findById(id, organisationId) : policyRepository.findById(id))
+        return policyRepository.findById(id, organisationId)
                 .switchIfEmpty(Mono.error(new ApprovalPolicyNotFoundException(id)))
                 .map(ApprovalPolicyMapper::toResponse);
     }

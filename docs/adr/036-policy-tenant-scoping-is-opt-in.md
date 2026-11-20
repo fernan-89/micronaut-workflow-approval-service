@@ -1,7 +1,7 @@
 # ADR-036: Filing a Request Against a Policy of Another Tenant Is Refused Only When Asked
 
 ## Status
-Accepted (2026-11-11). Decided with the owner, who chose the optional switch over an always-on check.
+Superseded by ADR-039 (the switch is removed and the check is always on). Accepted (2026-11-11). Decided with the owner, who chose the optional switch over an always-on check.
 
 ## Context
 `POST /initiate` found the policy by its id alone, so a tenant could file a request against another tenant's policy given its id. That mattered little while the policy ids were set by an operator, and more once procurement made the policy id data that a tenant's staff types into an approval band. Making the check always on would stop change management from working: its CAB and ECAB policy ids are one deployment-wide pair of environment variables, used by every tenant, and the policies belong to a single tenant.

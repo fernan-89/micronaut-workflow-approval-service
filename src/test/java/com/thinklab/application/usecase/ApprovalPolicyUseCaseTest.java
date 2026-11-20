@@ -59,17 +59,18 @@ class ApprovalPolicyUseCaseTest {
     @DisplayName("retrieveById: not found surfaces ApprovalPolicyNotFoundException")
     void retrieveByIdNotFound() {
         UUID id = UUID.randomUUID();
-        when(policyRepository.findById(id)).thenReturn(Mono.empty());
-        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository, false);
+        UUID tenant = UUID.randomUUID();
+        when(policyRepository.findById(id, tenant)).thenReturn(Mono.empty());
+        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository);
 
-        StepVerifier.create(useCase.execute(id, UUID.randomUUID())).expectError(ApprovalPolicyNotFoundException.class).verify();
+        StepVerifier.create(useCase.execute(id, tenant)).expectError(ApprovalPolicyNotFoundException.class).verify();
     }
 
     @Test
     @DisplayName("retrieveById: maps the found policy to a response")
     void retrieveByIdFound() {
-        when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
-        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository, false);
+        when(policyRepository.findById(policy.getId(), policy.getOrganisationId())).thenReturn(Mono.just(policy));
+        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository);
 
         StepVerifier.create(useCase.execute(policy.getId(), policy.getOrganisationId())).expectNextCount(1).verifyComplete();
     }
@@ -112,25 +113,15 @@ class ApprovalPolicyUseCaseTest {
     }
 
     @Test
-    @DisplayName("retrieveById with the tenant scoping on finds only a policy of the caller's tenant: another tenant's is the same as none")
+    @DisplayName("retrieveById finds only a policy of the caller's tenant: another tenant's is the same as none")
     void retrieveByIdScoped() {
         UUID other = UUID.randomUUID();
         when(policyRepository.findById(policy.getId(), policy.getOrganisationId())).thenReturn(Mono.just(policy));
         when(policyRepository.findById(policy.getId(), other)).thenReturn(Mono.empty());
-        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository, true);
+        RetrievePolicyUseCase useCase = new RetrievePolicyUseCase(policyRepository);
 
         StepVerifier.create(useCase.execute(policy.getId(), policy.getOrganisationId())).expectNextCount(1).verifyComplete();
         StepVerifier.create(useCase.execute(policy.getId(), other)).expectError(ApprovalPolicyNotFoundException.class).verify();
-        org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.never()).findById(any(UUID.class));
-    }
-
-    @Test
-    @DisplayName("retrieveById without a tenant works while the scoping is off (change management reads the shared policy that way) and is refused while it is on")
-    void retrieveByIdWithoutTenant() {
-        when(policyRepository.findById(policy.getId())).thenReturn(Mono.just(policy));
-
-        StepVerifier.create(new RetrievePolicyUseCase(policyRepository, false).execute(policy.getId(), null)).expectNextCount(1).verifyComplete();
-        StepVerifier.create(new RetrievePolicyUseCase(policyRepository, true).execute(policy.getId(), null)).expectError(IllegalArgumentException.class).verify();
     }
 
     @Test
